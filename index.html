@@ -6,7 +6,6 @@
 <title>مسافات الجزائر — حاسبة المسافات بين الولايات والبلديات</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- إضافة مكتبة SheetJS لمعالجة ملفات Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
@@ -140,6 +139,7 @@
     padding:11px 12px;border-radius:9px;font-family:'Tajawal',sans-serif;font-size:14.5px;outline:none;
   }
   .add-form input:focus{border-color:var(--sand);}
+  .add-form input::placeholder{color:var(--paper-dim);opacity:0.6;}
   .find-btn{
     grid-column:1/-1;background:none;border:1px dashed var(--line);color:var(--paper-dim);
     padding:9px;border-radius:8px;font-size:12.5px;cursor:pointer;font-family:'Tajawal',sans-serif;
@@ -160,7 +160,7 @@
     background:var(--night-3);border:1px solid var(--line);border-radius:10px;padding:10px 14px;
   }
   .custom-item .nm{font-weight:600;font-size:14.5px;}
-  .custom-item .co{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--paper-dim);margin-inline-start:8px;}
+  .custom-item .co{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--paper-dim);margin-inline-start:8px;direction:ltr;display:inline-block;}
   .custom-item .del{
     background:none;border:1px solid rgba(201,96,62,0.35);color:#e7a58f;border-radius:7px;
     width:28px;height:28px;cursor:pointer;font-size:14px;flex:0 0 auto;
@@ -191,7 +191,6 @@
   .sync-form input{width:100%;background:var(--night);border:1px solid var(--line);color:var(--paper);padding:10px 12px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;outline:none;}
   .sync-form input:focus{border-color:var(--sand);}
 
-  /* أزرار الاستيراد والتصدير */
   .import-export-row{
     display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 4px;
   }
@@ -319,7 +318,6 @@
     </button>
   </div>
 
-  <!-- نافذة تسجيل الدخول للمدير -->
   <div class="admin-login-overlay" id="adminLoginOverlay">
     <div class="admin-login-box">
       <h3>👑 تسجيل الدخول كمدير</h3>
@@ -371,17 +369,16 @@
       </div>
       <div>
         <label>خط العرض (Lat)</label>
-        <input id="placeLat" type="text" placeholder="36.75">
+        <input id="placeLat" type="text" placeholder="مثال: 36.75 أو 36,75">
       </div>
       <div>
         <label>خط الطول (Lon)</label>
-        <input id="placeLon" type="text" placeholder="3.06">
+        <input id="placeLon" type="text" placeholder="مثال: 3.06 أو 3,06">
       </div>
       <button class="save-btn" id="saveBtn" disabled>حفظ</button>
       <button class="find-btn" id="findBtn">🔍 ابحث عن الإحداثيات تلقائياً بالاسم (يتطلب اتصال بالإنترنت)</button>
     </div>
 
-    <!-- أزرار استيراد وتصدير البيانات -->
     <div class="import-export-row">
       <button class="ie-btn export-btn" id="exportBtn">📊 تصدير Excel</button>
       <button class="ie-btn import-btn" id="importBtn">📂 جلب Excel</button>
@@ -461,10 +458,30 @@
   </footer>
 </div>
 
-<!-- Toast notification -->
 <div class="toast" id="toast"></div>
 
 <script>
+/* ============================================================
+   دالة تحويل الأرقام: تحويل الفاصلة إلى نقطة للاستخدام العددي
+   ============================================================ */
+function parseNumberWithComma(value) {
+  if (value === null || value === undefined || value === '') return NaN;
+  // تحويل الفاصلة إلى نقطة
+  let str = String(value).trim().replace(/,/g, '.');
+  // إزالة أي مسافات
+  str = str.replace(/\s/g, '');
+  return parseFloat(str);
+}
+
+/* ============================================================
+   دالة تنسيق الأرقام: عرض الأرقام مع فاصلة (لغة عربية) أو نقطة
+   ============================================================ */
+function formatNumberWithComma(value, decimals = 6) {
+  if (value === null || value === undefined || isNaN(value)) return '';
+  // تنسيق الرقم مع الفاصلة كفاصل عشري (للعرض باللغة العربية)
+  return value.toFixed(decimals).replace(/\./g, ',');
+}
+
 /* ---------------- بيانات الولايات (58) ---------------- */
 const WILAYAS = [
 ["أدرار","Adrar",27.87,-0.29],["الشلف","Chlef",36.17,1.34],["الأغواط","Laghouat",33.80,2.86],
@@ -572,7 +589,7 @@ function showToast(message, isError = false){
   }, 3500);
 }
 
-/* ---------------- تخزين دائم عبر window.storage ---------------- */
+/* ---------------- تخزين دائم ---------------- */
 const HAS_CLAUDE_STORAGE = (typeof window.storage !== 'undefined');
 async function storageGetRaw(key){
   if(HAS_CLAUDE_STORAGE){
@@ -621,7 +638,6 @@ async function sbFetchPlaces(){
   }));
 }
 async function sbInsertPlace(place){
-  // إزالة user_uid من الإدراج لأن الجدول لا يحتوي على هذا العمود
   const res=await fetch(`${sbConfig.url}/rest/v1/places`,{
     method:'POST', headers:{...sbHeaders(),'Prefer':'return=representation'},
     body:JSON.stringify({
@@ -635,8 +651,6 @@ async function sbInsertPlace(place){
   return rows[0];
 }
 async function sbDeletePlace(id){
-  // الحذف باستخدام معرف المستخدم المحلي للتحكم بالصلاحيات
-  // نستخدم معرف المستخدم المخزن محلياً للتحقق من الملكية
   const res=await fetch(
     `${sbConfig.url}/rest/v1/places?id=eq.${id}`,
     {method:'DELETE', headers:sbHeaders()}
@@ -693,8 +707,6 @@ function renderCustomList(){
   }
   box.innerHTML='';
   customPlaces.forEach((p)=>{
-    // في وضع Supabase، نستخدم معرف المستخدم المحلي لتحديد الملكية
-    // نستخدم localStorage لتخزين معرف المالك لكل مكان عند الإضافة
     const ownerKey = `place_owner_${p.id}`;
     const ownerId = localStorage.getItem(ownerKey);
     const isOwner = ownerId === currentUserId;
@@ -705,10 +717,13 @@ function renderCustomList(){
     let badges = '';
     if(isOwner) badges += '<span class="owner-badge">👤 ملكك</span>';
     if(isAdmin && !isOwner) badges += '<span class="admin-badge">👑 مدير</span>';
+    // عرض الأرقام مع الفاصلة (لغة عربية)
+    const latDisplay = formatNumberWithComma(p.lat, 6);
+    const lonDisplay = formatNumberWithComma(p.lon, 6);
     d.innerHTML=`
       <span>
         <span class="nm">${p.name}</span>
-        <span class="co">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</span>
+        <span class="co">${latDisplay}, ${lonDisplay}</span>
         ${badges}
       </span>
     `;
@@ -878,14 +893,15 @@ function importFromExcel(file){
         }
         
         if(latCol !== -1 && latCol < row.length){
-          const val = parseFloat(row[latCol]);
+          // استخدام دالة parseNumberWithComma للتعامل مع الفاصلة أو النقطة
+          const val = parseNumberWithComma(row[latCol]);
           if(!isNaN(val) && val >= -90 && val <= 90){
             lat = val;
           }
         }
         
         if(lonCol !== -1 && lonCol < row.length){
-          const val = parseFloat(row[lonCol]);
+          const val = parseNumberWithComma(row[lonCol]);
           if(!isNaN(val) && val >= -180 && val <= 180){
             lon = val;
           }
@@ -897,7 +913,7 @@ function importFromExcel(file){
             const val = String(row[j] || '').trim();
             if(val === '') continue;
             
-            const num = parseFloat(val);
+            const num = parseNumberWithComma(val);
             if(!isNaN(num) && val.length > 0){
               if(!foundLat && num >= -90 && num <= 90){
                 lat = num;
@@ -906,7 +922,7 @@ function importFromExcel(file){
                 lon = num;
                 foundLon = true;
               }
-            } else if(!foundName && val.length > 0 && !val.match(/^[\d\s,.]+$/)){
+            } else if(!foundName && val.length > 0 && !val.match(/^[\d\s,.]*$/)){
               name = val;
               foundName = true;
             }
@@ -990,14 +1006,25 @@ const saveBtn=document.getElementById('saveBtn'), findBtn=document.getElementByI
 
 function checkSaveReady(){
   const okName=placeName.value.trim().length>0;
-  const okLat=!isNaN(parseFloat(placeLat.value));
-  const okLon=!isNaN(parseFloat(placeLon.value));
+  // استخدام parseNumberWithComma للتحقق من صحة الأرقام
+  const latVal = parseNumberWithComma(placeLat.value);
+  const lonVal = parseNumberWithComma(placeLon.value);
+  const okLat = !isNaN(latVal);
+  const okLon = !isNaN(lonVal);
   saveBtn.disabled=!(okName&&okLat&&okLon);
 }
 [placeName,placeLat,placeLon].forEach(el=>el.addEventListener('input',checkSaveReady));
 
 saveBtn.addEventListener('click', async ()=>{
-  const newPlace={name:placeName.value.trim(), lat:parseFloat(placeLat.value), lon:parseFloat(placeLon.value)};
+  const latVal = parseNumberWithComma(placeLat.value);
+  const lonVal = parseNumberWithComma(placeLon.value);
+  const newPlace={name:placeName.value.trim(), lat:latVal, lon:lonVal};
+  
+  if(isNaN(latVal) || isNaN(lonVal)){
+    showToast('يرجى إدخال أرقام صحيحة لخط العرض والطول', true);
+    return;
+  }
+  
   saveBtn.disabled=true; saveBtn.textContent='جارٍ الحفظ...';
   try{
     if(sbConfig){
@@ -1149,7 +1176,9 @@ function renderTopSuggest(box, query, side){
   all.forEach(item=>{
     const d=document.createElement('div');
     d.className='opt';
-    d.innerHTML=`<span>${item.custom?'<span class="tag">مخصص</span>':''}${item.name}</span><small>${item.lat.toFixed(2)}, ${item.lon.toFixed(2)}</small>`;
+    const latDisplay = formatNumberWithComma(item.lat, 2);
+    const lonDisplay = formatNumberWithComma(item.lon, 2);
+    d.innerHTML=`<span>${item.custom?'<span class="tag">مخصص</span>':''}${item.name}</span><small>${latDisplay}, ${lonDisplay}</small>`;
     d.addEventListener('click',()=>{
       box.classList.remove('open');
       if(side==='A') inputA.value=item.name; else inputB.value=item.name;
@@ -1218,7 +1247,9 @@ function attachCommuneSearch(input, suggestBox, getWilaya, side, timerKey){
         const label = r.display_name.split(',')[0];
         const d=document.createElement('div');
         d.className='opt';
-        d.innerHTML=`<span>${label}</span><small>${parseFloat(r.lat).toFixed(2)}, ${parseFloat(r.lon).toFixed(2)}</small>`;
+        const latDisplay = formatNumberWithComma(parseFloat(r.lat), 2);
+        const lonDisplay = formatNumberWithComma(parseFloat(r.lon), 2);
+        d.innerHTML=`<span>${label}</span><small>${latDisplay}, ${lonDisplay}</small>`;
         d.addEventListener('click',()=>{
           input.value=label;
           const val2={name:label+', '+wilaya.name, lat:parseFloat(r.lat), lon:parseFloat(r.lon)};
