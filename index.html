@@ -772,7 +772,7 @@ function exportToExcel(){
   // إنشاء مصفوفة ثنائية الأبعاد للبيانات (صفوف وأعمدة)
   const data = [];
   
-  // إضافة رأس الجدول
+  // إضافة رأس الجدول - أعمدة ثابتة
   data.push(['#', 'اسم المكان', 'خط العرض', 'خط الطول']);
   
   // إضافة البيانات
@@ -805,7 +805,7 @@ function exportToExcel(){
       if(!ws[addr]) continue;
       if(!ws[addr].s) ws[addr].s = {};
       ws[addr].s.alignment = { horizontal: 'center', vertical: 'center' };
-      // تنسيق الأرقام (الأعمدة C و D)
+      // تنسيق الأرقام (الأعمدة C و D - الفهارس 2 و 3)
       if(C >= 2 && C <= 3 && !isNaN(ws[addr].v) && ws[addr].v !== '') {
         ws[addr].s.numFmt = '0.######';
       }
@@ -852,24 +852,76 @@ function importFromExcel(file){
       let nameCol = -1, latCol = -1, lonCol = -1;
       const headerRow = jsonData[0];
       
+      // البحث عن الأعمدة المطابقة
       for(let i = 0; i < headerRow.length; i++){
         const cell = String(headerRow[i] || '').trim().toLowerCase();
-        if(cell.includes('اسم') || cell.includes('name') || cell.includes('المكان')) {
+        // البحث عن عمود الاسم
+        if(cell.includes('اسم') || cell.includes('name') || cell.includes('المكان') || cell.includes('place')) {
           nameCol = i;
-        } else if(cell.includes('خط عرض') || cell.includes('lat') || cell.includes('latitude')) {
+        }
+        // البحث عن عمود خط العرض
+        else if(cell.includes('خط عرض') || cell.includes('lat') || cell.includes('latitude') || cell.includes('عرض')) {
           latCol = i;
-        } else if(cell.includes('خط طول') || cell.includes('lon') || cell.includes('longitude') || cell.includes('long')) {
+        }
+        // البحث عن عمود خط الطول
+        else if(cell.includes('خط طول') || cell.includes('lon') || cell.includes('longitude') || cell.includes('long') || cell.includes('طول')) {
           lonCol = i;
-        } else if(cell === '#') {
-          // عمود الترقيم - نتجاهله
         }
       }
       
-      // إذا لم نجد الأعمدة، نفترض الترتيب: اسم, خط عرض, خط طول
+      // إذا لم نجد الأعمدة، نبحث بطريقة أكثر مرونة
+      if(nameCol === -1 || latCol === -1 || lonCol === -1){
+        // نبحث عن أعمدة تحتوي على أرقام (الإحداثيات)
+        let numCols = [];
+        for(let i = 0; i < headerRow.length; i++){
+          const cell = String(headerRow[i] || '').trim();
+          // تخطي عمود الترقيم (#)
+          if(cell === '#' || cell === 'رقم' || cell === 'No' || cell === '') continue;
+          // نبحث عن أعمدة قد تحتوي على أرقام
+          if(cell.match(/[\d.]/)) {
+            numCols.push(i);
+          }
+        }
+        
+        // إذا وجدنا عمودين رقميين، نعتبرهما خط العرض والطول
+        if(numCols.length >= 2){
+          // نأخذ أول عمودين رقميين
+          if(latCol === -1) latCol = numCols[0];
+          if(lonCol === -1 && numCols.length > 1) lonCol = numCols[1];
+          
+          // نبحث عن عمود النص للاسم (أول عمود غير رقمي)
+          for(let i = 0; i < headerRow.length; i++){
+            if(i === latCol || i === lonCol) continue;
+            const cell = String(headerRow[i] || '').trim();
+            if(cell && !cell.match(/^[\d\s,.]*$/)){
+              nameCol = i;
+              break;
+            }
+          }
+        }
+      }
+      
+      // إذا لم نجد أي عمود، نستخدم الأعمدة الثلاثة الأولى
       if(nameCol === -1 && latCol === -1 && lonCol === -1){
-        nameCol = 0;
-        latCol = 1;
-        lonCol = 2;
+        // نبحث عن أعمدة تحتوي على بيانات فعلية في الصف الثاني
+        if(jsonData.length > 1){
+          const row2 = jsonData[1];
+          let hasData = [];
+          for(let i = 0; i < row2.length; i++){
+            if(row2[i] !== '' && row2[i] !== null && row2[i] !== undefined){
+              hasData.push(i);
+            }
+          }
+          if(hasData.length >= 3){
+            nameCol = hasData[0];
+            latCol = hasData[1];
+            lonCol = hasData[2];
+          }
+        }
+        // الحل النهائي
+        if(nameCol === -1) nameCol = 0;
+        if(latCol === -1) latCol = 1;
+        if(lonCol === -1) lonCol = 2;
       }
       
       let importedCount = 0;
@@ -889,7 +941,7 @@ function importFromExcel(file){
           name = String(row[nameCol] || '').trim();
         }
         
-        // استخراج خط العرض (مع دعم الفاصلة أو النقطة)
+        // استخراج خط العرض
         if(latCol !== -1 && latCol < row.length){
           const val = row[latCol];
           if(val !== '' && val !== null && val !== undefined){
@@ -900,7 +952,7 @@ function importFromExcel(file){
           }
         }
         
-        // استخراج خط الطول (مع دعم الفاصلة أو النقطة)
+        // استخراج خط الطول
         if(lonCol !== -1 && lonCol < row.length){
           const val = row[lonCol];
           if(val !== '' && val !== null && val !== undefined){
@@ -917,6 +969,9 @@ function importFromExcel(file){
           for(let j = 0; j < row.length; j++){
             const val = String(row[j] || '').trim();
             if(val === '') continue;
+            
+            // تخطي عمود الترقيم
+            if(j === 0 && val.match(/^\d+$/)) continue;
             
             const num = parseNumberWithComma(val);
             if(!isNaN(num) && val.length > 0){
