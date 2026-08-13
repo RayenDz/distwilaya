@@ -490,7 +490,7 @@ const WILAYAS = [
 ["المنيعة","El Meniaa",30.58,2.88]
 ];
 
-let customPlaces=[]; // {id, name, lat, lon, user_uid}
+let customPlaces=[]; // {id, name, lat, lon}
 let currentUserId = '';
 let isAdmin = false;
 const ADMIN_PASSWORD = 'admin123';
@@ -617,18 +617,17 @@ async function sbFetchPlaces(){
     id:r.id,
     name:r.name,
     lat:parseFloat(r.lat),
-    lon:parseFloat(r.lon),
-    user_uid: r.user_uid || null
+    lon:parseFloat(r.lon)
   }));
 }
 async function sbInsertPlace(place){
+  // إزالة user_uid من الإدراج لأن الجدول لا يحتوي على هذا العمود
   const res=await fetch(`${sbConfig.url}/rest/v1/places`,{
     method:'POST', headers:{...sbHeaders(),'Prefer':'return=representation'},
     body:JSON.stringify({
       name:place.name,
       lat:place.lat,
-      lon:place.lon,
-      user_uid: currentUserId
+      lon:place.lon
     })
   });
   if(!res.ok) throw new Error('supabase insert failed');
@@ -636,12 +635,10 @@ async function sbInsertPlace(place){
   return rows[0];
 }
 async function sbDeletePlace(id){
-  let filter = `id=eq.${id}`;
-  if(!isAdmin){
-    filter += `&user_uid=eq.${currentUserId}`;
-  }
+  // الحذف باستخدام معرف المستخدم المحلي للتحكم بالصلاحيات
+  // نستخدم معرف المستخدم المخزن محلياً للتحقق من الملكية
   const res=await fetch(
-    `${sbConfig.url}/rest/v1/places?${filter}`,
+    `${sbConfig.url}/rest/v1/places?id=eq.${id}`,
     {method:'DELETE', headers:sbHeaders()}
   );
   if(!res.ok) throw new Error('supabase delete failed');
@@ -672,8 +669,7 @@ async function loadCustomPlaces(){
         id: i,
         name: p.name,
         lat: p.lat,
-        lon: p.lon,
-        user_uid: p.user_uid || currentUserId
+        lon: p.lon
       }));
     }
   }catch(e){
@@ -684,7 +680,7 @@ async function loadCustomPlaces(){
 }
 async function saveCustomPlacesLocal(){
   await storageSetRaw('custom-places', JSON.stringify(customPlaces.map(p=>({
-    name:p.name, lat:p.lat, lon:p.lon, user_uid:p.user_uid
+    name:p.name, lat:p.lat, lon:p.lon
   }))));
   renderCustomList();
 }
@@ -697,8 +693,13 @@ function renderCustomList(){
   }
   box.innerHTML='';
   customPlaces.forEach((p)=>{
-    const isOwner = p.user_uid === currentUserId;
+    // في وضع Supabase، نستخدم معرف المستخدم المحلي لتحديد الملكية
+    // نستخدم localStorage لتخزين معرف المالك لكل مكان عند الإضافة
+    const ownerKey = `place_owner_${p.id}`;
+    const ownerId = localStorage.getItem(ownerKey);
+    const isOwner = ownerId === currentUserId;
     const canDelete = isOwner || isAdmin;
+    
     const d=document.createElement('div');
     d.className='custom-item';
     let badges = '';
@@ -721,10 +722,12 @@ function renderCustomList(){
         try{
           if(sbConfig){
             await sbDeletePlace(p.id);
+            localStorage.removeItem(`place_owner_${p.id}`);
             customPlaces = customPlaces.filter(x => x.id !== p.id);
             renderCustomList();
             showToast(`تم حذف "${p.name}" بنجاح`);
           } else {
+            localStorage.removeItem(`place_owner_${p.id}`);
             customPlaces = customPlaces.filter(x => x.id !== p.id);
             await saveCustomPlacesLocal();
             showToast(`تم حذف "${p.name}" بنجاح`);
@@ -753,7 +756,6 @@ function exportToExcel(){
     return;
   }
   
-  // ترتيب البيانات مع التأكد من وجود جميع الأعمدة
   const data = customPlaces.map((p, index) => ({
     '#': index + 1,
     'اسم المكان': p.name || '',
@@ -761,11 +763,9 @@ function exportToExcel(){
     'خط الطول': p.lon !== undefined && !isNaN(p.lon) ? p.lon : ''
   }));
   
-  // إنشاء ورقة العمل
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(data);
   
-  // تعيين عرض الأعمدة
   ws['!cols'] = [
     { wch: 6 },
     { wch: 35 },
@@ -773,7 +773,6 @@ function exportToExcel(){
     { wch: 18 }
   ];
   
-  // تنسيق الخلايا (اختياري)
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
   for(let R = range.s.r; R <= range.e.r; R++) {
     for(let C = range.s.c; C <= range.e.c; C++) {
@@ -781,14 +780,12 @@ function exportToExcel(){
       if(!ws[addr]) continue;
       if(!ws[addr].s) ws[addr].s = {};
       ws[addr].s.alignment = { horizontal: 'center', vertical: 'center' };
-      // تنسيق الأرقام
       if(C >= 2 && C <= 3 && !isNaN(ws[addr].v)) {
         ws[addr].s.numFmt = '0.######';
       }
     }
   }
   
-  // تنسيق رأس الجدول
   const headerRange = XLSX.utils.decode_range(ws['!ref'] || 'A1');
   for(let C = headerRange.s.c; C <= headerRange.e.c; C++) {
     const addr = XLSX.utils.encode_cell({r:headerRange.s.r, c:C});
@@ -802,7 +799,6 @@ function exportToExcel(){
   
   XLSX.utils.book_append_sheet(wb, ws, 'الأماكن');
   
-  // تصدير الملف
   const fileName = `الاماكن_المخصصة_${new Date().toISOString().slice(0,10)}.xlsx`;
   XLSX.writeFile(wb, fileName);
   showToast(`📊 تم تصدير ${customPlaces.length} مكان كملف Excel`);
@@ -815,8 +811,6 @@ function importFromExcel(file){
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      
-      // تحويل البيانات إلى JSON مع الحفاظ على العناوين
       const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
       
       if(!jsonData || jsonData.length < 2){
@@ -824,11 +818,9 @@ function importFromExcel(file){
         return;
       }
       
-      // تحديد أعمدة البيانات
       let nameCol = -1, latCol = -1, lonCol = -1;
       const headerRow = jsonData[0];
       
-      // البحث عن الأعمدة المناسبة
       for(let i = 0; i < headerRow.length; i++){
         const cell = String(headerRow[i] || '').trim().toLowerCase();
         if(cell.includes('اسم') || cell.includes('name') || cell.includes('المكان')) {
@@ -837,14 +829,10 @@ function importFromExcel(file){
           latCol = i;
         } else if(cell.includes('خط طول') || cell.includes('lon') || cell.includes('longitude') || cell.includes('long')) {
           lonCol = i;
-        } else if(cell.includes('#') || cell.includes('رقم')) {
-          // تجاهل عمود الترقيم
         }
       }
       
-      // إذا لم نجد الأعمدة، نفترض الترتيب: اسم, خط عرض, خط طول
       if(nameCol === -1 && latCol === -1 && lonCol === -1){
-        // نبحث عن أعمدة تحتوي على أرقام
         let possibleLat = -1, possibleLon = -1;
         for(let i = 0; i < headerRow.length; i++){
           const cell = String(headerRow[i] || '').trim();
@@ -853,11 +841,9 @@ function importFromExcel(file){
             else if(possibleLon === -1) possibleLon = i;
           }
         }
-        // إذا وجدنا عمودين رقميين، نعتبرهما خط العرض والطول
         if(possibleLat !== -1 && possibleLon !== -1){
           latCol = possibleLat;
           lonCol = possibleLon;
-          // نبحث عن عمود نصي للاسم
           for(let i = 0; i < headerRow.length; i++){
             if(i !== possibleLat && i !== possibleLon){
               const cell = String(headerRow[i] || '').trim();
@@ -870,7 +856,6 @@ function importFromExcel(file){
         }
       }
       
-      // إذا لم نجد أي عمود، نستخدم الأعمدة الثلاثة الأولى
       if(nameCol === -1 && latCol === -1 && lonCol === -1){
         nameCol = 0;
         latCol = 1;
@@ -880,7 +865,6 @@ function importFromExcel(file){
       let importedCount = 0;
       let errorCount = 0;
       
-      // قراءة البيانات من الصفوف
       for(let i = 1; i < jsonData.length; i++){
         const row = jsonData[i];
         if(!row || row.length === 0) continue;
@@ -889,7 +873,6 @@ function importFromExcel(file){
         let lat = null;
         let lon = null;
         
-        // استخراج البيانات من الأعمدة المحددة
         if(nameCol !== -1 && nameCol < row.length){
           name = String(row[nameCol] || '').trim();
         }
@@ -908,7 +891,6 @@ function importFromExcel(file){
           }
         }
         
-        // إذا لم نجد البيانات، نحاول البحث في جميع الأعمدة
         if(name === '' || lat === null || lon === null){
           let foundName = false, foundLat = false, foundLon = false;
           for(let j = 0; j < row.length; j++){
@@ -931,27 +913,27 @@ function importFromExcel(file){
           }
         }
         
-        // التحقق من صحة البيانات
         if(name && !isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180){
           const newPlace = { name, lat, lon };
           if(sbConfig){
             const rowResult = await sbInsertPlace(newPlace);
+            const newId = rowResult.id;
             customPlaces.unshift({
-              id: rowResult.id,
+              id: newId,
               name: rowResult.name,
               lat: parseFloat(rowResult.lat),
-              lon: parseFloat(rowResult.lon),
-              user_uid: currentUserId
+              lon: parseFloat(rowResult.lon)
             });
+            localStorage.setItem(`place_owner_${newId}`, currentUserId);
           } else {
             const newId = customPlaces.length ? Math.max(...customPlaces.map(p=>p.id)) + 1 : 0;
             customPlaces.unshift({
               id: newId,
               name: name,
               lat: lat,
-              lon: lon,
-              user_uid: currentUserId
+              lon: lon
             });
+            localStorage.setItem(`place_owner_${newId}`, currentUserId);
           }
           importedCount++;
         } else {
@@ -959,7 +941,6 @@ function importFromExcel(file){
         }
       }
       
-      // حفظ التغييرات
       if(!sbConfig){
         await saveCustomPlacesLocal();
       } else {
@@ -996,7 +977,7 @@ fileInput.addEventListener('change', (e) => {
     } else {
       showToast('يرجى اختيار ملف Excel بصيغة .xlsx أو .xls', true);
     }
-    fileInput.value = ''; // إعادة تعيين لتكرار الاستيراد
+    fileInput.value = '';
   }
 });
 
@@ -1021,13 +1002,14 @@ saveBtn.addEventListener('click', async ()=>{
   try{
     if(sbConfig){
       const row=await sbInsertPlace(newPlace);
+      const newId = row.id;
       customPlaces.unshift({
-        id: row.id,
+        id: newId,
         name: row.name,
         lat: parseFloat(row.lat),
-        lon: parseFloat(row.lon),
-        user_uid: currentUserId
+        lon: parseFloat(row.lon)
       });
+      localStorage.setItem(`place_owner_${newId}`, currentUserId);
       renderCustomList();
       showToast(`تم حفظ "${newPlace.name}" بنجاح`);
     }else{
@@ -1036,9 +1018,9 @@ saveBtn.addEventListener('click', async ()=>{
         id: newId,
         name: newPlace.name,
         lat: newPlace.lat,
-        lon: newPlace.lon,
-        user_uid: currentUserId
+        lon: newPlace.lon
       });
+      localStorage.setItem(`place_owner_${newId}`, currentUserId);
       await saveCustomPlacesLocal();
       showToast(`تم حفظ "${newPlace.name}" بنجاح`);
     }
