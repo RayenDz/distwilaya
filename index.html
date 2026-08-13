@@ -19,6 +19,7 @@
     --paper-dim:#c9c2b2;
     --line:rgba(242,237,226,0.14);
     --danger:#c9603e;
+    --gold:#f5c842;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -45,6 +46,61 @@
   h1{margin:0;font-size:clamp(28px,5vw,42px);font-weight:900;line-height:1.05;}
   h1 span{color:var(--sand-light);}
   .compass{width:64px;height:64px;flex:0 0 auto;opacity:.85;}
+
+  .top-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    flex-wrap:wrap;margin-bottom:12px;
+  }
+  .user-uid-badge{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    background:rgba(201,138,62,0.15);color:var(--sand-light);
+    padding:4px 12px;border-radius:999px;border:1px solid var(--line);
+    display:inline-block;
+  }
+  .admin-toggle-btn{
+    background:none;border:1px solid var(--line);color:var(--paper-dim);
+    padding:5px 14px;border-radius:999px;font-size:12px;cursor:pointer;
+    font-family:'Tajawal',sans-serif;transition:all .2s;
+  }
+  .admin-toggle-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .admin-toggle-btn.active{
+    border-color:var(--gold);color:var(--gold);
+    background:rgba(245,200,66,0.12);
+  }
+  .admin-toggle-btn .icon{font-size:14px;}
+
+  .admin-login-overlay{
+    display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+    background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center;
+  }
+  .admin-login-overlay.open{display:flex;}
+  .admin-login-box{
+    background:var(--night-2);border:1px solid var(--line);border-radius:18px;
+    padding:32px 28px;max-width:400px;width:90%;
+  }
+  .admin-login-box h3{text-align:center;color:var(--gold);margin:0 0 16px;font-size:20px;}
+  .admin-login-box label{display:block;font-size:12px;color:var(--sand-light);margin-bottom:4px;}
+  .admin-login-box input{
+    width:100%;background:var(--night-3);border:1px solid var(--line);color:var(--paper);
+    padding:11px 14px;border-radius:9px;font-size:15px;outline:none;margin-bottom:14px;
+    font-family:'Tajawal',sans-serif;
+  }
+  .admin-login-box input:focus{border-color:var(--gold);}
+  .admin-login-box .actions{display:flex;gap:10px;justify-content:center;}
+  .admin-login-box .actions button{
+    padding:10px 28px;border-radius:9px;border:none;font-weight:700;font-size:14px;
+    cursor:pointer;font-family:'Tajawal',sans-serif;
+  }
+  .admin-login-box .actions .login-btn{
+    background:linear-gradient(135deg,var(--gold),#d4a820);color:#1a1400;
+  }
+  .admin-login-box .actions .cancel-btn{
+    background:var(--night-3);color:var(--paper-dim);border:1px solid var(--line);
+  }
+  .admin-login-box .error-msg{
+    color:var(--danger);font-size:13px;text-align:center;margin-top:10px;
+    display:none;
+  }
 
   .tabs{
     display:flex;gap:8px;background:var(--night-2);padding:6px;border-radius:14px;
@@ -107,18 +163,48 @@
     width:28px;height:28px;cursor:pointer;font-size:14px;flex:0 0 auto;
   }
   .custom-item .del:hover{background:rgba(201,96,62,0.15);}
+  .custom-item .owner-badge{
+    font-size:10px;background:rgba(111,169,141,0.2);color:var(--green-light);
+    padding:2px 8px;border-radius:999px;margin-inline-start:8px;
+  }
+  .custom-item .admin-badge{
+    font-size:10px;background:rgba(245,200,66,0.2);color:var(--gold);
+    padding:2px 8px;border-radius:999px;margin-inline-start:8px;
+  }
   .empty-list{font-size:13px;color:var(--paper-dim);padding:8px 2px;}
 
   .sync-box{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:20px;background:var(--night-3);}
   .sync-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
   .sync-row .l2{font-weight:700;font-size:14px;}
-  .mini-btn{background:none;border:1px solid var(--line);color:var(--sand-light);padding:7px 14px;border-radius:8px;font-size:12.5px;cursor:pointer;font-family:'Tajawal',sans-serif;}
-  .mini-btn:hover{border-color:var(--sand-light);}
+  .mini-btn{
+    background:none;border:1px solid var(--line);color:var(--sand-light);
+    padding:7px 14px;border-radius:8px;font-size:12.5px;cursor:pointer;
+    font-family:'Tajawal',sans-serif;transition:all .2s;
+  }
+  .mini-btn:hover{border-color:var(--sand-light);background:rgba(201,138,62,0.05);}
   .sync-form{display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end;margin-top:12px;}
   @media (max-width:700px){.sync-form{grid-template-columns:1fr;}}
   .sync-form label{display:block;font-size:11.5px;color:var(--sand-light);font-family:'IBM Plex Mono',monospace;margin-bottom:6px;}
   .sync-form input{width:100%;background:var(--night);border:1px solid var(--line);color:var(--paper);padding:10px 12px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;outline:none;}
   .sync-form input:focus{border-color:var(--sand);}
+
+  /* أزرار الاستيراد والتصدير */
+  .import-export-row{
+    display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 4px;
+  }
+  .import-export-row .ie-btn{
+    background:none;border:1px solid var(--line);color:var(--paper-dim);
+    padding:8px 16px;border-radius:8px;font-size:12.5px;cursor:pointer;
+    font-family:'Tajawal',sans-serif;transition:all .2s;display:flex;align-items:center;gap:6px;
+  }
+  .import-export-row .ie-btn:hover{
+    border-color:var(--sand-light);color:var(--sand-light);
+    background:rgba(201,138,62,0.05);
+  }
+  .import-export-row .ie-btn.export-btn:hover{border-color:var(--green-light);color:var(--green-light);}
+  .import-export-row .ie-btn.import-btn:hover{border-color:var(--sand-light);color:var(--sand-light);}
+  .import-export-row .ie-btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .file-input-hidden{display:none;}
 
   .fields{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:end;}
   @media (max-width:640px){ .fields{grid-template-columns:1fr;} .swap-btn{justify-self:center;} }
@@ -192,6 +278,18 @@
 
   footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--paper-dim);line-height:2;}
   footer b{color:var(--paper);}
+
+  .toast{
+    position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+    background:var(--night-3);border:1px solid var(--green-light);color:var(--paper);
+    padding:12px 24px;border-radius:12px;font-size:14px;
+    z-index:999;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    animation:slideUp .3s ease;
+    display:none;
+  }
+  .toast.show{display:block;}
+  .toast.error{border-color:var(--danger);color:#e7a58f;}
+  @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
 </style>
 </head>
 <body>
@@ -210,6 +308,27 @@
       <circle cx="50" cy="50" r="4" fill="#f2ede2"/>
     </svg>
   </header>
+
+  <div class="top-bar">
+    <span class="user-uid-badge">👤 معرفك: <span id="userIdDisplay">—</span></span>
+    <button class="admin-toggle-btn" id="adminToggleBtn">
+      <span class="icon">👑</span> <span id="adminToggleLabel">وضع المدير</span>
+    </button>
+  </div>
+
+  <!-- نافذة تسجيل الدخول للمدير -->
+  <div class="admin-login-overlay" id="adminLoginOverlay">
+    <div class="admin-login-box">
+      <h3>👑 تسجيل الدخول كمدير</h3>
+      <label>كلمة المرور</label>
+      <input type="password" id="adminPasswordInput" placeholder="أدخل كلمة المرور..." autocomplete="off">
+      <div class="error-msg" id="adminLoginError">❌ كلمة المرور غير صحيحة</div>
+      <div class="actions">
+        <button class="login-btn" id="adminLoginBtn">تسجيل الدخول</button>
+        <button class="cancel-btn" id="adminLoginCancel">إلغاء</button>
+      </div>
+    </div>
+  </div>
 
   <div class="tabs">
     <div class="tab active" data-mode="wilaya">بين الولايات</div>
@@ -258,7 +377,18 @@
       <button class="save-btn" id="saveBtn" disabled>حفظ</button>
       <button class="find-btn" id="findBtn">🔍 ابحث عن الإحداثيات تلقائياً بالاسم (يتطلب اتصال بالإنترنت)</button>
     </div>
-    <div class="db-note">الأماكن التي تضيفها هنا تُحفظ بشكل دائم على هذا الجهاز، وتظهر تلقائياً ضمن قوائم البحث بالأعلى (في وضع الولايات والبلديات معاً) حتى تحسب المسافة إليها أو منها.</div>
+
+    <!-- أزرار استيراد وتصدير البيانات -->
+    <div class="import-export-row">
+      <button class="ie-btn export-btn" id="exportBtn">📤 تصدير البيانات (CSV)</button>
+      <button class="ie-btn import-btn" id="importBtn">📥 جلب البيانات (CSV)</button>
+      <input type="file" id="fileInput" class="file-input-hidden" accept=".csv">
+      <span style="font-size:11px;color:var(--paper-dim);margin-right:auto;align-self:center;">
+        صيغة CSV: اسم المكان, خط العرض, خط الطول
+      </span>
+    </div>
+
+    <div class="db-note">⚠️ الأماكن التي تضيفها هنا تظهر للجميع (قراءة عامة)، لكن <strong>أنت فقط من يمكنه تعديل أو حذف ما أضفته</strong> (مرتبط بمعرف متصفحك). <strong>المدير</strong> لديه صلاحية حذف أي مكان.</div>
     <div class="custom-list" id="customList"></div>
   </div>
 
@@ -324,9 +454,12 @@
   <footer>
     <div><b>طريقة الحساب:</b> المسافة الجوية تُحسب رياضياً بصيغة Haversine اعتماداً على إحداثيات مراكز الولايات/البلديات/الأماكن المخصصة. مسافة الطريق ووقت السياقة تُجلب من خدمة توجيه مفتوحة المصدر (OSRM) عند توفر الاتصال، وإلا فتُقدَّر بمعدل 75 كلم/سا.</div>
     <div style="margin-top:6px"><b>بيانات البلديات:</b> تُجلب لحظياً عبر OpenStreetMap Nominatim (يلزم اتصال بالإنترنت).</div>
-    <div style="margin-top:6px"><b>مكتبة الأماكن المخصصة:</b> إذا لم تُربط بقاعدة مشتركة، تُحفظ محلياً على هذا الجهاز فقط. عند الربط بـ Supabase من قسم «إعداد / تعديل» أعلاه، تصبح قاعدة بيانات حقيقية مشتركة يراها كل زوار الصفحة ويقدرون يضيفون إليها.</div>
+    <div style="margin-top:6px"><b>مكتبة الأماكن المخصصة:</b> إذا لم تُربط بقاعدة مشتركة، تُحفظ محلياً على هذا الجهاز فقط. عند الربط بـ Supabase، تصبح قاعدة بيانات مشتركة: كل الزوار يرون جميع الأماكن، لكن كل مستخدم يملك صلاحية تعديل/حذف ما أضافه فقط. <strong>المدير</strong> يمتلك صلاحية حذف أي مكان.</div>
   </footer>
 </div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
 
 <script>
 /* ---------------- بيانات الولايات (58) ---------------- */
@@ -354,7 +487,87 @@ const WILAYAS = [
 ["المنيعة","El Meniaa",30.58,2.88]
 ];
 
-let customPlaces=[]; // {name, lat, lon}
+let customPlaces=[]; // {id, name, lat, lon, user_uid}
+let currentUserId = '';
+let isAdmin = false;
+const ADMIN_PASSWORD = 'admin123';
+
+/* ---------------- توليد معرف مستخدم فريد ---------------- */
+function generateUserId() {
+  let uid = localStorage.getItem('dz_user_uid');
+  if(!uid){
+    uid = 'user_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2,8);
+    localStorage.setItem('dz_user_uid', uid);
+  }
+  return uid;
+}
+currentUserId = generateUserId();
+document.getElementById('userIdDisplay').textContent = currentUserId.substring(0,12)+'…';
+
+/* ---------------- صلاحيات المدير ---------------- */
+const adminToggleBtn = document.getElementById('adminToggleBtn');
+const adminLoginOverlay = document.getElementById('adminLoginOverlay');
+const adminPasswordInput = document.getElementById('adminPasswordInput');
+const adminLoginBtn = document.getElementById('adminLoginBtn');
+const adminLoginCancel = document.getElementById('adminLoginCancel');
+const adminLoginError = document.getElementById('adminLoginError');
+
+adminToggleBtn.addEventListener('click', () => {
+  if(isAdmin){
+    isAdmin = false;
+    updateAdminUI();
+    renderCustomList();
+    return;
+  }
+  adminLoginOverlay.classList.add('open');
+  adminPasswordInput.value = '';
+  adminLoginError.style.display = 'none';
+  adminPasswordInput.focus();
+});
+
+adminLoginBtn.addEventListener('click', () => {
+  const pass = adminPasswordInput.value.trim();
+  if(pass === ADMIN_PASSWORD){
+    isAdmin = true;
+    adminLoginOverlay.classList.remove('open');
+    updateAdminUI();
+    renderCustomList();
+  } else {
+    adminLoginError.style.display = 'block';
+    adminPasswordInput.value = '';
+    adminPasswordInput.focus();
+  }
+});
+
+adminLoginCancel.addEventListener('click', () => {
+  adminLoginOverlay.classList.remove('open');
+});
+
+adminPasswordInput.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') adminLoginBtn.click();
+  if(e.key === 'Escape') adminLoginCancel.click();
+});
+
+function updateAdminUI(){
+  if(isAdmin){
+    adminToggleBtn.classList.add('active');
+    document.getElementById('adminToggleLabel').textContent = 'خروج من المدير 👑';
+  } else {
+    adminToggleBtn.classList.remove('active');
+    document.getElementById('adminToggleLabel').textContent = 'وضع المدير';
+  }
+}
+
+/* ---------------- Toast Notification ---------------- */
+function showToast(message, isError = false){
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 3500);
+}
 
 /* ---------------- تخزين دائم عبر window.storage ---------------- */
 const HAS_CLAUDE_STORAGE = (typeof window.storage !== 'undefined');
@@ -371,13 +584,12 @@ async function storageSetRaw(key,val){
   try{ localStorage.setItem(key,val); }catch(e){ /* تجاهل */ }
 }
 
-/* ---------------- ربط Supabase (قاعدة بيانات مشتركة اختيارية) ---------------- */
-/* بيانات ربط افتراضية مضمّنة مباشرة في الملف — تُستعمل تلقائياً ما لم يحفظ المستخدم رابطاً آخر */
+/* ---------------- ربط Supabase ---------------- */
 const DEFAULT_SB_CONFIG = {
   url: 'https://ezfgbbgolqvutvyozunm.supabase.co',
   key: 'sb_publishable_w60PouXFrOtA_PYXPwEakA_zdlgthSp'
 };
-let sbConfig=null; // {url, key}
+let sbConfig=null;
 function loadSbConfig(){
   try{
     const raw=localStorage.getItem('sb-config');
@@ -398,19 +610,37 @@ async function sbFetchPlaces(){
   const res=await fetch(`${sbConfig.url}/rest/v1/places?select=*&order=id.desc`,{headers:sbHeaders()});
   if(!res.ok) throw new Error('supabase fetch failed');
   const rows=await res.json();
-  return rows.map(r=>({id:r.id, name:r.name, lat:parseFloat(r.lat), lon:parseFloat(r.lon)}));
+  return rows.map(r=>({
+    id:r.id,
+    name:r.name,
+    lat:parseFloat(r.lat),
+    lon:parseFloat(r.lon),
+    user_uid: r.user_uid || null
+  }));
 }
 async function sbInsertPlace(place){
   const res=await fetch(`${sbConfig.url}/rest/v1/places`,{
     method:'POST', headers:{...sbHeaders(),'Prefer':'return=representation'},
-    body:JSON.stringify({name:place.name, lat:place.lat, lon:place.lon})
+    body:JSON.stringify({
+      name:place.name,
+      lat:place.lat,
+      lon:place.lon,
+      user_uid: currentUserId
+    })
   });
   if(!res.ok) throw new Error('supabase insert failed');
   const rows=await res.json();
   return rows[0];
 }
 async function sbDeletePlace(id){
-  const res=await fetch(`${sbConfig.url}/rest/v1/places?id=eq.${id}`,{method:'DELETE', headers:sbHeaders()});
+  let filter = `id=eq.${id}`;
+  if(!isAdmin){
+    filter += `&user_uid=eq.${currentUserId}`;
+  }
+  const res=await fetch(
+    `${sbConfig.url}/rest/v1/places?${filter}`,
+    {method:'DELETE', headers:sbHeaders()}
+  );
   if(!res.ok) throw new Error('supabase delete failed');
 }
 
@@ -419,7 +649,7 @@ function updateSyncUI(){
   const status=document.getElementById('syncStatus');
   if(sbConfig){
     badge.style.display='inline-block';
-    status.textContent='مربوطة بقاعدة بيانات Supabase — كل الزوار يشوفون نفس الأماكن ويقدرون يزيدون عليها.';
+    status.textContent='مربوطة بقاعدة بيانات Supabase — كل الزوار يشوفون نفس الأماكن، لكن كل مستخدم يتحكم بما أضافه فقط.';
   }else{
     badge.style.display='none';
     status.textContent='غير مربوطة حالياً — الأماكن تُخزَّن محلياً على هذا الجهاز فقط.';
@@ -435,7 +665,13 @@ async function loadCustomPlaces(){
     }else{
       const raw = await storageGetRaw('custom-places');
       const arr = raw ? JSON.parse(raw) : [];
-      customPlaces = arr.map((p,i)=>({id:i, name:p.name, lat:p.lat, lon:p.lon}));
+      customPlaces = arr.map((p,i)=>({
+        id: i,
+        name: p.name,
+        lat: p.lat,
+        lon: p.lon,
+        user_uid: p.user_uid || currentUserId
+      }));
     }
   }catch(e){
     customPlaces=[];
@@ -444,7 +680,9 @@ async function loadCustomPlaces(){
   renderCustomList();
 }
 async function saveCustomPlacesLocal(){
-  await storageSetRaw('custom-places', JSON.stringify(customPlaces.map(p=>({name:p.name,lat:p.lat,lon:p.lon}))));
+  await storageSetRaw('custom-places', JSON.stringify(customPlaces.map(p=>({
+    name:p.name, lat:p.lat, lon:p.lon, user_uid:p.user_uid
+  }))));
   renderCustomList();
 }
 function renderCustomList(){
@@ -456,22 +694,200 @@ function renderCustomList(){
   }
   box.innerHTML='';
   customPlaces.forEach((p)=>{
+    const isOwner = p.user_uid === currentUserId;
+    const canDelete = isOwner || isAdmin;
     const d=document.createElement('div');
     d.className='custom-item';
-    d.innerHTML=`<span><span class="nm">${p.name}</span><span class="co">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</span></span>`;
-    const del=document.createElement('button');
-    del.className='del'; del.textContent='✕';
-    del.addEventListener('click', async ()=>{
-      del.disabled=true;
-      try{
-        if(sbConfig){ await sbDeletePlace(p.id); customPlaces=customPlaces.filter(x=>x.id!==p.id); renderCustomList(); }
-        else{ customPlaces=customPlaces.filter(x=>x.id!==p.id); await saveCustomPlacesLocal(); }
-      }catch(e){ alert('تعذّر الحذف، تحقق من الاتصال.'); del.disabled=false; }
-    });
-    d.appendChild(del);
+    let badges = '';
+    if(isOwner) badges += '<span class="owner-badge">👤 ملكك</span>';
+    if(isAdmin && !isOwner) badges += '<span class="admin-badge">👑 مدير</span>';
+    d.innerHTML=`
+      <span>
+        <span class="nm">${p.name}</span>
+        <span class="co">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</span>
+        ${badges}
+      </span>
+    `;
+    if(canDelete){
+      const del=document.createElement('button');
+      del.className='del'; del.textContent='✕';
+      del.title = isAdmin ? 'حذف (صلاحية المدير)' : 'حذف (ملكك)';
+      del.addEventListener('click', async ()=>{
+        if(!confirm(`هل تريد حذف "${p.name}"؟`)) return;
+        del.disabled=true;
+        try{
+          if(sbConfig){
+            await sbDeletePlace(p.id);
+            customPlaces = customPlaces.filter(x => x.id !== p.id);
+            renderCustomList();
+            showToast(`تم حذف "${p.name}" بنجاح`);
+          } else {
+            customPlaces = customPlaces.filter(x => x.id !== p.id);
+            await saveCustomPlacesLocal();
+            showToast(`تم حذف "${p.name}" بنجاح`);
+          }
+        }catch(e){
+          showToast('تعذّر الحذف، تحقق من الاتصال أو صلاحياتك.', true);
+          del.disabled=false;
+        }
+      });
+      d.appendChild(del);
+    } else {
+      const placeholder = document.createElement('span');
+      placeholder.style.width='28px'; placeholder.style.display='inline-block';
+      placeholder.style.opacity='0.3';
+      placeholder.textContent = '🔒';
+      d.appendChild(placeholder);
+    }
     box.appendChild(d);
   });
 }
+
+/* ---------------- استيراد وتصدير البيانات ---------------- */
+function exportToCSV(){
+  if(customPlaces.length === 0){
+    showToast('لا توجد بيانات لتصديرها', true);
+    return;
+  }
+  // ترتيب الأعمدة: اسم المكان, خط العرض, خط الطول
+  const headers = ['اسم المكان', 'خط العرض', 'خط الطول'];
+  const rows = customPlaces.map(p => [
+    `"${p.name.replace(/"/g, '""')}"`,
+    p.lat.toFixed(6),
+    p.lon.toFixed(6)
+  ]);
+  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for Arabic
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `الاماكن_المخصصة_${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  showToast(`تم تصدير ${customPlaces.length} مكان بنجاح`);
+}
+
+function importFromCSV(file){
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    try{
+      const text = e.target.result;
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      if(lines.length < 2){
+        showToast('الملف فارغ أو لا يحتوي على بيانات صحيحة', true);
+        return;
+      }
+      
+      // تخطي رأس العمود إن وجد
+      let startIndex = 0;
+      const firstLine = lines[0].toLowerCase();
+      if(firstLine.includes('اسم') || firstLine.includes('name') || 
+         firstLine.includes('خط عرض') || firstLine.includes('lat')){
+        startIndex = 1;
+      }
+      
+      let importedCount = 0;
+      let errorCount = 0;
+      
+      for(let i = startIndex; i < lines.length; i++){
+        try{
+          // دعم CSV مع أو بدون فواصل بين علامات التنصيص
+          let parts = [];
+          let current = '';
+          let insideQuotes = false;
+          const line = lines[i].trim();
+          
+          for(let char of line){
+            if(char === '"'){
+              insideQuotes = !insideQuotes;
+            } else if(char === ',' && !insideQuotes){
+              parts.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          parts.push(current.trim());
+          
+          // إزالة علامات التنصيص من الأطراف
+          parts = parts.map(p => p.replace(/^"|"$/g, '').replace(/""/g, '"'));
+          
+          if(parts.length >= 3){
+            const name = parts[0].trim();
+            const lat = parseFloat(parts[1]);
+            const lon = parseFloat(parts[2]);
+            
+            if(name && !isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180){
+              // إضافة المكان
+              const newPlace = { name, lat, lon };
+              if(sbConfig){
+                const row = await sbInsertPlace(newPlace);
+                customPlaces.unshift({
+                  id: row.id,
+                  name: row.name,
+                  lat: parseFloat(row.lat),
+                  lon: parseFloat(row.lon),
+                  user_uid: currentUserId
+                });
+              }else{
+                const newId = customPlaces.length ? Math.max(...customPlaces.map(p=>p.id)) + 1 : 0;
+                customPlaces.unshift({
+                  id: newId,
+                  name: name,
+                  lat: lat,
+                  lon: lon,
+                  user_uid: currentUserId
+                });
+              }
+              importedCount++;
+            } else {
+              errorCount++;
+            }
+          } else {
+            errorCount++;
+          }
+        } catch(err){
+          errorCount++;
+        }
+      }
+      
+      // حفظ التغييرات
+      if(!sbConfig){
+        await saveCustomPlacesLocal();
+      } else {
+        renderCustomList();
+      }
+      
+      if(importedCount > 0){
+        showToast(`✅ تم استيراد ${importedCount} مكان بنجاح${errorCount > 0 ? ` (${errorCount} سطر غير صالح)` : ''}`);
+      } else {
+        showToast('❌ لم يتم استيراد أي مكان. تأكد من صيغة الملف: اسم المكان, خط العرض, خط الطول', true);
+      }
+      
+    } catch(err){
+      showToast('حدث خطأ أثناء قراءة الملف: ' + err.message, true);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+/* ---------------- ربط أزرار الاستيراد والتصدير ---------------- */
+document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+
+const fileInput = document.getElementById('fileInput');
+document.getElementById('importBtn').addEventListener('click', () => {
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', (e) => {
+  if(e.target.files && e.target.files[0]){
+    importFromCSV(e.target.files[0]);
+    fileInput.value = ''; // إعادة تعيين لتكرار الاستيراد
+  }
+});
 
 /* لوحة الإضافة */
 const dbToggle=document.getElementById('dbToggle'), dbPanel=document.getElementById('dbPanel');
@@ -494,15 +910,31 @@ saveBtn.addEventListener('click', async ()=>{
   try{
     if(sbConfig){
       const row=await sbInsertPlace(newPlace);
-      customPlaces.unshift({id:row.id, name:row.name, lat:parseFloat(row.lat), lon:parseFloat(row.lon)});
+      customPlaces.unshift({
+        id: row.id,
+        name: row.name,
+        lat: parseFloat(row.lat),
+        lon: parseFloat(row.lon),
+        user_uid: currentUserId
+      });
       renderCustomList();
+      showToast(`تم حفظ "${newPlace.name}" بنجاح`);
     }else{
-      newPlace.id = customPlaces.length? Math.max(...customPlaces.map(p=>p.id))+1 : 0;
-      customPlaces.push(newPlace);
+      const newId = customPlaces.length? Math.max(...customPlaces.map(p=>p.id)) + 1 : 0;
+      customPlaces.push({
+        id: newId,
+        name: newPlace.name,
+        lat: newPlace.lat,
+        lon: newPlace.lon,
+        user_uid: currentUserId
+      });
       await saveCustomPlacesLocal();
+      showToast(`تم حفظ "${newPlace.name}" بنجاح`);
     }
     placeName.value=''; placeLat.value=''; placeLon.value='';
-  }catch(e){ alert('تعذّر الحفظ في القاعدة المشتركة، تحقق من الرابط/المفتاح واسم الجدول.'); }
+  }catch(e){
+    showToast('تعذّر الحفظ في القاعدة المشتركة، تحقق من الرابط/المفتاح.', true);
+  }
   saveBtn.textContent='حفظ'; checkSaveReady();
 });
 
@@ -515,16 +947,18 @@ syncToggleBtn.addEventListener('click',()=>{
 });
 document.getElementById('sbSaveBtn').addEventListener('click', async ()=>{
   const url=sbUrlInput.value.trim(), key=sbKeyInput.value.trim();
-  if(!url || !key){ alert('أدخل الرابط والمفتاح كاملين.'); return; }
+  if(!url || !key){ showToast('أدخل الرابط والمفتاح كاملين.', true); return; }
   saveSbConfig(url, key);
   syncForm.style.display='none';
   await loadCustomPlaces();
+  showToast('تم ربط قاعدة البيانات بنجاح');
 });
 document.getElementById('sbClearBtn').addEventListener('click', async ()=>{
   clearSbConfig();
   syncForm.style.display='none';
   sbUrlInput.value=''; sbKeyInput.value='';
   await loadCustomPlaces();
+  showToast('تم إلغاء الربط والعودة للتخزين المحلي');
 });
 
 findBtn.addEventListener('click', async ()=>{
@@ -538,10 +972,11 @@ findBtn.addEventListener('click', async ()=>{
       placeLat.value=parseFloat(data[0].lat).toFixed(6);
       placeLon.value=parseFloat(data[0].lon).toFixed(6);
       checkSaveReady();
+      showToast(`تم العثور على "${q}"`);
     }else{
-      alert('لم يتم العثور على هذا المكان، أدخل الإحداثيات يدوياً.');
+      showToast('لم يتم العثور على هذا المكان، أدخل الإحداثيات يدوياً.', true);
     }
-  }catch(e){ alert('تعذّر البحث، تحقق من الاتصال بالإنترنت.'); }
+  }catch(e){ showToast('تعذّر البحث، تحقق من الاتصال بالإنترنت.', true); }
   findBtn.textContent='🔍 ابحث عن الإحداثيات تلقائياً بالاسم (يتطلب اتصال بالإنترنت)';
 });
 
@@ -626,11 +1061,9 @@ function renderTopSuggest(box, query, side){
       box.classList.remove('open');
       if(side==='A') inputA.value=item.name; else inputB.value=item.name;
       if(mode==='wilaya' || item.custom){
-        // اختيار نهائي مباشر (ولاية في وضع الولايات، أو أي مكان مخصص في أي وضع)
         if(side==='A'){ selA={name:item.name,lat:item.lat,lon:item.lon}; chosenWilayaA=null; els('wilayaSubA').style.display='none'; }
         else{ selB={name:item.name,lat:item.lat,lon:item.lon}; chosenWilayaB=null; els('wilayaSubB').style.display='none'; }
       }else{
-        // وضع البلديات + تم اختيار ولاية => يلزم اختيار بلدية بعدها
         if(side==='A'){ selA=null; chosenWilayaA=item; els('wilayaSubA').style.display='block'; inputA2.value=''; }
         else{ selB=null; chosenWilayaB=item; els('wilayaSubB').style.display='block'; inputB2.value=''; }
       }
