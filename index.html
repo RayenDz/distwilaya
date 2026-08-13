@@ -6,6 +6,8 @@
 <title>مسافات الجزائر — حاسبة المسافات بين الولايات والبلديات</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- إضافة مكتبة SheetJS لمعالجة ملفات Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --sand:#c98a3e;
@@ -20,6 +22,7 @@
     --line:rgba(242,237,226,0.14);
     --danger:#c9603e;
     --gold:#f5c842;
+    --blue:#4a8db7;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -202,7 +205,7 @@
     background:rgba(201,138,62,0.05);
   }
   .import-export-row .ie-btn.export-btn:hover{border-color:var(--green-light);color:var(--green-light);}
-  .import-export-row .ie-btn.import-btn:hover{border-color:var(--sand-light);color:var(--sand-light);}
+  .import-export-row .ie-btn.import-btn:hover{border-color:var(--blue);color:var(--blue);}
   .import-export-row .ie-btn:disabled{opacity:0.4;cursor:not-allowed;}
   .file-input-hidden{display:none;}
 
@@ -289,7 +292,7 @@
   }
   .toast.show{display:block;}
   .toast.error{border-color:var(--danger);color:#e7a58f;}
-  @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+  @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px);}to{opacity:1;transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
@@ -380,11 +383,11 @@
 
     <!-- أزرار استيراد وتصدير البيانات -->
     <div class="import-export-row">
-      <button class="ie-btn export-btn" id="exportBtn">📤 تصدير البيانات (CSV)</button>
-      <button class="ie-btn import-btn" id="importBtn">📥 جلب البيانات (CSV)</button>
-      <input type="file" id="fileInput" class="file-input-hidden" accept=".csv">
+      <button class="ie-btn export-btn" id="exportBtn">📊 تصدير Excel</button>
+      <button class="ie-btn import-btn" id="importBtn">📂 جلب Excel</button>
+      <input type="file" id="fileInput" class="file-input-hidden" accept=".xlsx,.xls">
       <span style="font-size:11px;color:var(--paper-dim);margin-right:auto;align-self:center;">
-        صيغة CSV: اسم المكان, خط العرض, خط الطول
+        صيغة Excel: اسم المكان | خط العرض | خط الطول
       </span>
     </div>
 
@@ -743,113 +746,141 @@ function renderCustomList(){
   });
 }
 
-/* ---------------- استيراد وتصدير البيانات ---------------- */
-function exportToCSV(){
+/* ---------------- استيراد وتصدير البيانات (Excel) ---------------- */
+function exportToExcel(){
   if(customPlaces.length === 0){
     showToast('لا توجد بيانات لتصديرها', true);
     return;
   }
-  // ترتيب الأعمدة: اسم المكان, خط العرض, خط الطول
-  const headers = ['اسم المكان', 'خط العرض', 'خط الطول'];
-  const rows = customPlaces.map(p => [
-    `"${p.name.replace(/"/g, '""')}"`,
-    p.lat.toFixed(6),
-    p.lon.toFixed(6)
-  ]);
-  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   
-  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for Arabic
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute('download', `الاماكن_المخصصة_${new Date().toISOString().slice(0,10)}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  showToast(`تم تصدير ${customPlaces.length} مكان بنجاح`);
+  // ترتيب البيانات للأعمدة
+  const data = customPlaces.map(p => ({
+    'اسم المكان': p.name,
+    'خط العرض': p.lat,
+    'خط الطول': p.lon
+  }));
+  
+  // إضافة صف إضافي للترقيم
+  const wsData = [
+    ['#', 'اسم المكان', 'خط العرض', 'خط الطول'],
+    ...data.map((row, index) => [index + 1, row['اسم المكان'], row['خط العرض'], row['خط الطون']])
+  ];
+  
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  
+  // تعيين عرض الأعمدة
+  ws['!cols'] = [
+    { wch: 6 },
+    { wch: 30 },
+    { wch: 15 },
+    { wch: 15 }
+  ];
+  
+  XLSX.utils.book_append_sheet(wb, ws, 'الأماكن');
+  
+  // تصدير الملف
+  const fileName = `الاماكن_المخصصة_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  showToast(`📊 تم تصدير ${customPlaces.length} مكان كملف Excel`);
 }
 
-function importFromCSV(file){
+function importFromExcel(file){
   const reader = new FileReader();
   reader.onload = async function(e){
     try{
-      const text = e.target.result;
-      const lines = text.split('\n').filter(line => line.trim() !== '');
-      if(lines.length < 2){
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+      
+      if(!jsonData || jsonData.length < 2){
         showToast('الملف فارغ أو لا يحتوي على بيانات صحيحة', true);
         return;
       }
       
-      // تخطي رأس العمود إن وجد
-      let startIndex = 0;
-      const firstLine = lines[0].toLowerCase();
-      if(firstLine.includes('اسم') || firstLine.includes('name') || 
-         firstLine.includes('خط عرض') || firstLine.includes('lat')){
-        startIndex = 1;
+      // تحديد الصف الذي يبدأ فيه البيانات (تخطي الرأس إن وجد)
+      let startRow = 0;
+      const firstRow = jsonData[0];
+      if(firstRow && firstRow.some(cell => 
+        String(cell).toLowerCase().includes('اسم') || 
+        String(cell).toLowerCase().includes('name') ||
+        String(cell).toLowerCase().includes('خط عرض') ||
+        String(cell).toLowerCase().includes('lat')
+      )){
+        startRow = 1;
       }
       
       let importedCount = 0;
       let errorCount = 0;
       
-      for(let i = startIndex; i < lines.length; i++){
-        try{
-          // دعم CSV مع أو بدون فواصل بين علامات التنصيص
-          let parts = [];
-          let current = '';
-          let insideQuotes = false;
-          const line = lines[i].trim();
+      for(let i = startRow; i < jsonData.length; i++){
+        const row = jsonData[i];
+        if(!row || row.length < 3) continue;
+        
+        // محاولة استخراج البيانات من الأعمدة
+        let name = null;
+        let lat = null;
+        let lon = null;
+        
+        // البحث في الأعمدة عن الاسم والإحداثيات
+        for(let j = 0; j < row.length; j++){
+          const val = String(row[j] || '').trim();
+          if(!val) continue;
           
-          for(let char of line){
-            if(char === '"'){
-              insideQuotes = !insideQuotes;
-            } else if(char === ',' && !insideQuotes){
-              parts.push(current.trim());
-              current = '';
-            } else {
-              current += char;
+          // محاولة تحديد نوع العمود
+          const num = parseFloat(val);
+          if(!isNaN(num) && num !== 0){
+            if(lat === null && num >= -90 && num <= 90){
+              lat = num;
+            } else if(lon === null && num >= -180 && num <= 180){
+              lon = num;
+            }
+          } else if(name === null && val.length > 0 && !val.match(/^[\d\s]+$/)){
+            name = val;
+          }
+        }
+        
+        // إذا لم نجد الإحداثيات، حاول استخراجها من الأعمدة الثلاثة الأولى
+        if(lat === null || lon === null){
+          const col1 = parseFloat(row[1]);
+          const col2 = parseFloat(row[2]);
+          if(!isNaN(col1) && !isNaN(col2)){
+            if(col1 >= -90 && col1 <= 90 && col2 >= -180 && col2 <= 180){
+              lat = col1;
+              lon = col2;
             }
           }
-          parts.push(current.trim());
-          
-          // إزالة علامات التنصيص من الأطراف
-          parts = parts.map(p => p.replace(/^"|"$/g, '').replace(/""/g, '"'));
-          
-          if(parts.length >= 3){
-            const name = parts[0].trim();
-            const lat = parseFloat(parts[1]);
-            const lon = parseFloat(parts[2]);
-            
-            if(name && !isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180){
-              // إضافة المكان
-              const newPlace = { name, lat, lon };
-              if(sbConfig){
-                const row = await sbInsertPlace(newPlace);
-                customPlaces.unshift({
-                  id: row.id,
-                  name: row.name,
-                  lat: parseFloat(row.lat),
-                  lon: parseFloat(row.lon),
-                  user_uid: currentUserId
-                });
-              }else{
-                const newId = customPlaces.length ? Math.max(...customPlaces.map(p=>p.id)) + 1 : 0;
-                customPlaces.unshift({
-                  id: newId,
-                  name: name,
-                  lat: lat,
-                  lon: lon,
-                  user_uid: currentUserId
-                });
-              }
-              importedCount++;
-            } else {
-              errorCount++;
-            }
+          // إذا كان الاسم في العمود الأول
+          if(!name && row[0]){
+            name = String(row[0]).trim();
+          }
+        }
+        
+        // التحقق من صحة البيانات
+        if(name && !isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180){
+          const newPlace = { name, lat, lon };
+          if(sbConfig){
+            const rowResult = await sbInsertPlace(newPlace);
+            customPlaces.unshift({
+              id: rowResult.id,
+              name: rowResult.name,
+              lat: parseFloat(rowResult.lat),
+              lon: parseFloat(rowResult.lon),
+              user_uid: currentUserId
+            });
           } else {
-            errorCount++;
+            const newId = customPlaces.length ? Math.max(...customPlaces.map(p=>p.id)) + 1 : 0;
+            customPlaces.unshift({
+              id: newId,
+              name: name,
+              lat: lat,
+              lon: lon,
+              user_uid: currentUserId
+            });
           }
-        } catch(err){
+          importedCount++;
+        } else {
           errorCount++;
         }
       }
@@ -871,11 +902,11 @@ function importFromCSV(file){
       showToast('حدث خطأ أثناء قراءة الملف: ' + err.message, true);
     }
   };
-  reader.readAsText(file, 'UTF-8');
+  reader.readAsArrayBuffer(file);
 }
 
 /* ---------------- ربط أزرار الاستيراد والتصدير ---------------- */
-document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+document.getElementById('exportBtn').addEventListener('click', exportToExcel);
 
 const fileInput = document.getElementById('fileInput');
 document.getElementById('importBtn').addEventListener('click', () => {
@@ -884,7 +915,13 @@ document.getElementById('importBtn').addEventListener('click', () => {
 
 fileInput.addEventListener('change', (e) => {
   if(e.target.files && e.target.files[0]){
-    importFromCSV(e.target.files[0]);
+    const file = e.target.files[0];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if(ext === 'xlsx' || ext === 'xls'){
+      importFromExcel(file);
+    } else {
+      showToast('يرجى اختيار ملف Excel بصيغة .xlsx أو .xls', true);
+    }
     fileInput.value = ''; // إعادة تعيين لتكرار الاستيراد
   }
 });
