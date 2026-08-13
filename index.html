@@ -176,6 +176,47 @@
   }
   .empty-list{font-size:13px;color:var(--paper-dim);padding:8px 2px;}
 
+  .place-search-box{position:relative;margin-top:16px;}
+  .place-search-box input{
+    width:100%;background:var(--night-3);border:1px solid var(--line);color:var(--paper);
+    padding:11px 14px;border-radius:9px;font-family:'Tajawal',sans-serif;font-size:14px;outline:none;
+  }
+  .place-search-box input:focus{border-color:var(--sand);}
+  .place-search-box .clear-search{
+    position:absolute;top:50%;transform:translateY(-50%);left:10px;
+    background:none;border:none;color:var(--paper-dim);cursor:pointer;font-size:14px;display:none;
+  }
+  .place-search-box.has-value .clear-search{display:block;}
+
+  .custom-item{flex-wrap:wrap;}
+  .custom-item .row-main{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;}
+  .custom-item .actions{display:flex;gap:6px;flex:0 0 auto;}
+  .custom-item .edit-btn{
+    background:none;border:1px solid rgba(111,169,141,0.4);color:var(--green-light);border-radius:7px;
+    width:28px;height:28px;cursor:pointer;font-size:13px;flex:0 0 auto;
+  }
+  .custom-item .edit-btn:hover{background:rgba(111,169,141,0.15);}
+  .edit-form{
+    display:none;width:100%;grid-template-columns:1fr 1fr auto auto;gap:8px;margin-top:10px;
+    padding-top:10px;border-top:1px dashed var(--line);align-items:end;
+  }
+  .edit-form.open{display:grid;}
+  @media (max-width:600px){.edit-form{grid-template-columns:1fr 1fr;}}
+  .edit-form label{display:block;font-size:10.5px;color:var(--sand-light);font-family:'IBM Plex Mono',monospace;margin-bottom:5px;}
+  .edit-form input{
+    width:100%;background:var(--night);border:1px solid var(--line);color:var(--paper);
+    padding:8px 10px;border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;outline:none;
+  }
+  .edit-form input:focus{border-color:var(--sand);}
+  .edit-form .edit-save{
+    background:linear-gradient(135deg,var(--green),var(--green-light));color:#0c1615;border:none;
+    padding:8px 12px;border-radius:7px;font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap;
+  }
+  .edit-form .edit-cancel{
+    background:none;border:1px solid var(--line);color:var(--paper-dim);
+    padding:8px 12px;border-radius:7px;cursor:pointer;font-size:12.5px;white-space:nowrap;
+  }
+
   .sync-box{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:20px;background:var(--night-3);}
   .sync-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
   .sync-row .l2{font-weight:700;font-size:14px;}
@@ -389,6 +430,10 @@
     </div>
 
     <div class="db-note">⚠️ الأماكن التي تضيفها هنا تظهر للجميع (قراءة عامة)، لكن <strong>أنت فقط من يمكنه تعديل أو حذف ما أضفته</strong> (مرتبط بمعرف متصفحك). <strong>المدير</strong> لديه صلاحية حذف أي مكان.</div>
+    <div class="place-search-box" id="placeSearchBox">
+      <input id="placeSearchInput" type="text" placeholder="🔎 ابحث عن مكان بالاسم لتعديل إحداثياته...">
+      <button class="clear-search" id="placeSearchClear" title="مسح البحث">✕</button>
+    </div>
     <div class="custom-list" id="customList"></div>
   </div>
 
@@ -647,6 +692,16 @@ async function sbInsertPlace(place){
   const rows=await res.json();
   return rows[0];
 }
+async function sbUpdatePlace(id, changes){
+  const res=await fetch(`${sbConfig.url}/rest/v1/places?id=eq.${id}`,{
+    method:'PATCH',
+    headers:{...sbHeaders(),'Prefer':'return=representation'},
+    body:JSON.stringify(changes)
+  });
+  if(!res.ok) throw new Error('supabase update failed');
+  const rows=await res.json();
+  return rows[0];
+}
 async function sbDeletePlace(id){
   const res=await fetch(
     `${sbConfig.url}/rest/v1/places?id=eq.${id}`,
@@ -695,20 +750,34 @@ async function saveCustomPlacesLocal(){
   }))));
   renderCustomList();
 }
+let placeSearchTerm = '';
+
 function renderCustomList(){
   const box=document.getElementById('customList');
   document.getElementById('dbCount').textContent=customPlaces.length;
+
   if(customPlaces.length===0){
     box.innerHTML='<div class="empty-list">لم تُضِف أي مكان بعد. أضف اسماً وإحداثيات بالأعلى، أو استعمل زر البحث التلقائي.</div>';
     return;
   }
+
+  const term = placeSearchTerm.trim().toLowerCase();
+  const list = term
+    ? customPlaces.filter(p => String(p.name||'').toLowerCase().includes(term))
+    : customPlaces;
+
+  if(list.length===0){
+    box.innerHTML='<div class="empty-list">لا توجد أماكن مطابقة لبحثك.</div>';
+    return;
+  }
+
   box.innerHTML='';
-  customPlaces.forEach((p)=>{
+  list.forEach((p)=>{
     const ownerKey = `place_owner_${p.id}`;
     const ownerId = localStorage.getItem(ownerKey);
     const isOwner = ownerId === currentUserId;
-    const canDelete = isOwner || isAdmin;
-    
+    const canEdit = isOwner || isAdmin;
+
     const d=document.createElement('div');
     d.className='custom-item';
     let badges = '';
@@ -716,14 +785,29 @@ function renderCustomList(){
     if(isAdmin && !isOwner) badges += '<span class="admin-badge">👑 مدير</span>';
     const latDisplay = formatNumberWithComma(p.lat, 6);
     const lonDisplay = formatNumberWithComma(p.lon, 6);
-    d.innerHTML=`
+
+    const rowMain=document.createElement('div');
+    rowMain.className='row-main';
+    rowMain.innerHTML=`
       <span>
         <span class="nm">${p.name}</span>
         <span class="co">${latDisplay}, ${lonDisplay}</span>
         ${badges}
       </span>
     `;
-    if(canDelete){
+
+    const actions=document.createElement('div');
+    actions.className='actions';
+
+    if(canEdit){
+      const editBtn=document.createElement('button');
+      editBtn.className='edit-btn'; editBtn.textContent='✎';
+      editBtn.title='تعديل خط العرض/الطول';
+      editBtn.addEventListener('click', ()=>{
+        editForm.classList.toggle('open');
+      });
+      actions.appendChild(editBtn);
+
       const del=document.createElement('button');
       del.className='del'; del.textContent='✕';
       del.title = isAdmin ? 'حذف (صلاحية المدير)' : 'حذف (ملكك)';
@@ -748,15 +832,99 @@ function renderCustomList(){
           del.disabled=false;
         }
       });
-      d.appendChild(del);
+      actions.appendChild(del);
     } else {
       const placeholder = document.createElement('span');
       placeholder.style.width='28px'; placeholder.style.display='inline-block';
       placeholder.style.opacity='0.3';
       placeholder.textContent = '🔒';
-      d.appendChild(placeholder);
+      actions.appendChild(placeholder);
     }
+
+    rowMain.appendChild(actions);
+    d.appendChild(rowMain);
+
+    // نموذج تعديل خط العرض/الطول (مخفي افتراضياً)
+    var editForm=document.createElement('div');
+    if(canEdit){
+      editForm.className='edit-form';
+      editForm.innerHTML=`
+        <div>
+          <label>خط العرض (Lat)</label>
+          <input type="text" class="edit-lat" value="${p.lat}">
+        </div>
+        <div>
+          <label>خط الطول (Lon)</label>
+          <input type="text" class="edit-lon" value="${p.lon}">
+        </div>
+        <button class="edit-save">💾 حفظ</button>
+        <button class="edit-cancel">إلغاء</button>
+      `;
+      const latInput = editForm.querySelector('.edit-lat');
+      const lonInput = editForm.querySelector('.edit-lon');
+      const saveBtnEl = editForm.querySelector('.edit-save');
+      const cancelBtnEl = editForm.querySelector('.edit-cancel');
+
+      cancelBtnEl.addEventListener('click', ()=>{
+        latInput.value = p.lat;
+        lonInput.value = p.lon;
+        editForm.classList.remove('open');
+      });
+
+      saveBtnEl.addEventListener('click', async ()=>{
+        const newLat = parseNumberWithComma(latInput.value);
+        const newLon = parseNumberWithComma(lonInput.value);
+        if(isNaN(newLat) || newLat < -90 || newLat > 90){
+          showToast('خط العرض غير صالح، يجب أن يكون بين ‎-90 و 90', true);
+          return;
+        }
+        if(isNaN(newLon) || newLon < -180 || newLon > 180){
+          showToast('خط الطول غير صالح، يجب أن يكون بين ‎-180 و 180', true);
+          return;
+        }
+        saveBtnEl.disabled=true; saveBtnEl.textContent='⏳ جارٍ الحفظ...';
+        try{
+          if(sbConfig){
+            const updated = await sbUpdatePlace(p.id, {lat:newLat, lon:newLon});
+            p.lat = parseFloat(updated.lat);
+            p.lon = parseFloat(updated.lon);
+          } else {
+            p.lat = newLat;
+            p.lon = newLon;
+            await saveCustomPlacesLocal();
+          }
+          showToast(`✅ تم تحديث إحداثيات "${p.name}"`);
+          renderCustomList();
+        }catch(e){
+          showToast('تعذّر حفظ التعديل، تحقق من الاتصال أو صلاحياتك.', true);
+          saveBtnEl.disabled=false; saveBtnEl.textContent='💾 حفظ';
+        }
+      });
+
+      d.appendChild(editForm);
+    }
+
     box.appendChild(d);
+  });
+}
+
+/* ---------------- بحث الأماكن المخصصة (لتعديل الإحداثيات) ---------------- */
+const placeSearchInput = document.getElementById('placeSearchInput');
+const placeSearchClear = document.getElementById('placeSearchClear');
+const placeSearchBox = document.getElementById('placeSearchBox');
+if(placeSearchInput){
+  placeSearchInput.addEventListener('input', ()=>{
+    placeSearchTerm = placeSearchInput.value;
+    placeSearchBox.classList.toggle('has-value', placeSearchTerm.trim().length>0);
+    renderCustomList();
+  });
+}
+if(placeSearchClear){
+  placeSearchClear.addEventListener('click', ()=>{
+    placeSearchTerm='';
+    placeSearchInput.value='';
+    placeSearchBox.classList.remove('has-value');
+    renderCustomList();
   });
 }
 
