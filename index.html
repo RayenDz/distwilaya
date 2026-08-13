@@ -372,19 +372,24 @@ async function storageSetRaw(key,val){
 }
 
 /* ---------------- ربط Supabase (قاعدة بيانات مشتركة اختيارية) ---------------- */
+/* بيانات ربط افتراضية مضمّنة مباشرة في الملف — تُستعمل تلقائياً ما لم يحفظ المستخدم رابطاً آخر */
+const DEFAULT_SB_CONFIG = {
+  url: 'https://ezfgbbgolqvutvyozunm.supabase.co',
+  key: 'sb_publishable_w60PouXFrOtA_PYXPwEakA_zdlgthSp'
+};
 let sbConfig=null; // {url, key}
 function loadSbConfig(){
   try{
     const raw=localStorage.getItem('sb-config');
-    sbConfig = raw?JSON.parse(raw):null;
-  }catch(e){ sbConfig=null; }
+    sbConfig = raw?JSON.parse(raw):DEFAULT_SB_CONFIG;
+  }catch(e){ sbConfig=DEFAULT_SB_CONFIG; }
 }
 function saveSbConfig(url,key){
   sbConfig={url:url.replace(/\/+$/,''), key};
   localStorage.setItem('sb-config', JSON.stringify(sbConfig));
 }
 function clearSbConfig(){
-  sbConfig=null; localStorage.removeItem('sb-config');
+  sbConfig=DEFAULT_SB_CONFIG; localStorage.removeItem('sb-config');
 }
 function sbHeaders(){
   return {'apikey':sbConfig.key,'Authorization':'Bearer '+sbConfig.key,'Content-Type':'application/json'};
