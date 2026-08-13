@@ -926,7 +926,19 @@ function importFromExcel(file){
       
       let importedCount = 0;
       let errorCount = 0;
-      
+      let duplicateCount = 0;
+
+      // مجموعة الأسماء الموجودة مسبقاً (نفس المعالجة: تنظيف مسافات + توحيد حالة الأحرف)
+      const normalizeName = (n) => String(n||'').trim().replace(/\s+/g,' ').toLowerCase();
+      const existingNames = new Set(customPlaces.map(p => normalizeName(p.name)));
+      // لتفادي تكرار أسماء داخل نفس ملف الاستيراد أيضاً
+      const namesInThisImport = new Set();
+
+      const importBtnEl = document.getElementById('importBtn');
+      const importBtnOrigText = importBtnEl ? importBtnEl.textContent : '';
+      if(importBtnEl){ importBtnEl.disabled = true; importBtnEl.textContent = '⏳ جارٍ التحميل...'; }
+      showToast('⏳ جارٍ تحميل البيانات من الملف...');
+
       // قراءة البيانات من الصفوف (تبدأ من الصف 1 لتخطي الرأس)
       for(let i = 1; i < jsonData.length; i++){
         const row = jsonData[i];
@@ -991,6 +1003,16 @@ function importFromExcel(file){
         
         // التحقق من صحة البيانات
         if(name && !isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180){
+          const normalized = normalizeName(name);
+          // تخطي الاسم إذا كان موجوداً مسبقاً في القاعدة أو تكرر داخل نفس الملف
+          if(existingNames.has(normalized) || namesInThisImport.has(normalized)){
+            duplicateCount++;
+            continue;
+          }
+          namesInThisImport.add(normalized);
+
+          if(importBtnEl){ importBtnEl.textContent = `⏳ جارٍ التحميل... (${importedCount+1})`; }
+
           const newPlace = { name, lat, lon };
           if(sbConfig){
             const rowResult = await sbInsertPlace(newPlace);
@@ -1023,14 +1045,25 @@ function importFromExcel(file){
       } else {
         renderCustomList();
       }
-      
+
+      // ✅ علامة انتهاء التحميل
+      if(importBtnEl){ importBtnEl.disabled = false; importBtnEl.textContent = importBtnOrigText; }
+
+      const parts = [];
+      if(duplicateCount > 0) parts.push(`تخطي ${duplicateCount} مكرر`);
+      if(errorCount > 0) parts.push(`${errorCount} سطر غير صالح`);
+      const suffix = parts.length ? ` (${parts.join('، ')})` : '';
+
       if(importedCount > 0){
-        showToast(`✅ تم استيراد ${importedCount} مكان بنجاح${errorCount > 0 ? ` (${errorCount} سطر غير صالح)` : ''}`);
+        showToast(`✅ اكتمل التحميل: تم استيراد ${importedCount} مكان${suffix}`);
+      } else if(duplicateCount > 0){
+        showToast(`ℹ️ اكتمل التحميل: كل الأماكن (${duplicateCount}) موجودة مسبقاً، لم تتم إضافة أي شيء جديد`);
       } else {
         showToast('❌ لم يتم استيراد أي مكان. تأكد من صيغة الملف: اسم المكان, خط العرض, خط الطول', true);
       }
       
     } catch(err){
+      if(importBtnEl){ importBtnEl.disabled = false; importBtnEl.textContent = importBtnOrigText; }
       showToast('حدث خطأ أثناء قراءة الملف: ' + err.message, true);
     }
   };
