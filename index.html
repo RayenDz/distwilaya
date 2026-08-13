@@ -753,29 +753,52 @@ function exportToExcel(){
     return;
   }
   
-  // ترتيب البيانات للأعمدة
-  const data = customPlaces.map(p => ({
-    'اسم المكان': p.name,
-    'خط العرض': p.lat,
-    'خط الطول': p.lon
+  // ترتيب البيانات مع التأكد من وجود جميع الأعمدة
+  const data = customPlaces.map((p, index) => ({
+    '#': index + 1,
+    'اسم المكان': p.name || '',
+    'خط العرض': p.lat !== undefined && !isNaN(p.lat) ? p.lat : '',
+    'خط الطول': p.lon !== undefined && !isNaN(p.lon) ? p.lon : ''
   }));
   
-  // إضافة صف إضافي للترقيم
-  const wsData = [
-    ['#', 'اسم المكان', 'خط العرض', 'خط الطول'],
-    ...data.map((row, index) => [index + 1, row['اسم المكان'], row['خط العرض'], row['خط الطون']])
-  ];
-  
+  // إنشاء ورقة العمل
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const ws = XLSX.utils.json_to_sheet(data);
   
   // تعيين عرض الأعمدة
   ws['!cols'] = [
     { wch: 6 },
-    { wch: 30 },
-    { wch: 15 },
-    { wch: 15 }
+    { wch: 35 },
+    { wch: 18 },
+    { wch: 18 }
   ];
+  
+  // تنسيق الخلايا (اختياري)
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for(let R = range.s.r; R <= range.e.r; R++) {
+    for(let C = range.s.c; C <= range.e.c; C++) {
+      const addr = XLSX.utils.encode_cell({r:R, c:C});
+      if(!ws[addr]) continue;
+      if(!ws[addr].s) ws[addr].s = {};
+      ws[addr].s.alignment = { horizontal: 'center', vertical: 'center' };
+      // تنسيق الأرقام
+      if(C >= 2 && C <= 3 && !isNaN(ws[addr].v)) {
+        ws[addr].s.numFmt = '0.######';
+      }
+    }
+  }
+  
+  // تنسيق رأس الجدول
+  const headerRange = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for(let C = headerRange.s.c; C <= headerRange.e.c; C++) {
+    const addr = XLSX.utils.encode_cell({r:headerRange.s.r, c:C});
+    if(ws[addr]) {
+      if(!ws[addr].s) ws[addr].s = {};
+      ws[addr].s.font = { bold: true };
+      ws[addr].s.fill = { fgColor: { rgb: "2C5F4A" } };
+      ws[addr].s.alignment = { horizontal: 'center', vertical: 'center' };
+    }
+  }
   
   XLSX.utils.book_append_sheet(wb, ws, 'الأماكن');
   
@@ -792,68 +815,119 @@ function importFromExcel(file){
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+      
+      // تحويل البيانات إلى JSON مع الحفاظ على العناوين
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
       
       if(!jsonData || jsonData.length < 2){
         showToast('الملف فارغ أو لا يحتوي على بيانات صحيحة', true);
         return;
       }
       
-      // تحديد الصف الذي يبدأ فيه البيانات (تخطي الرأس إن وجد)
-      let startRow = 0;
-      const firstRow = jsonData[0];
-      if(firstRow && firstRow.some(cell => 
-        String(cell).toLowerCase().includes('اسم') || 
-        String(cell).toLowerCase().includes('name') ||
-        String(cell).toLowerCase().includes('خط عرض') ||
-        String(cell).toLowerCase().includes('lat')
-      )){
-        startRow = 1;
+      // تحديد أعمدة البيانات
+      let nameCol = -1, latCol = -1, lonCol = -1;
+      const headerRow = jsonData[0];
+      
+      // البحث عن الأعمدة المناسبة
+      for(let i = 0; i < headerRow.length; i++){
+        const cell = String(headerRow[i] || '').trim().toLowerCase();
+        if(cell.includes('اسم') || cell.includes('name') || cell.includes('المكان')) {
+          nameCol = i;
+        } else if(cell.includes('خط عرض') || cell.includes('lat') || cell.includes('latitude')) {
+          latCol = i;
+        } else if(cell.includes('خط طول') || cell.includes('lon') || cell.includes('longitude') || cell.includes('long')) {
+          lonCol = i;
+        } else if(cell.includes('#') || cell.includes('رقم')) {
+          // تجاهل عمود الترقيم
+        }
+      }
+      
+      // إذا لم نجد الأعمدة، نفترض الترتيب: اسم, خط عرض, خط طول
+      if(nameCol === -1 && latCol === -1 && lonCol === -1){
+        // نبحث عن أعمدة تحتوي على أرقام
+        let possibleLat = -1, possibleLon = -1;
+        for(let i = 0; i < headerRow.length; i++){
+          const cell = String(headerRow[i] || '').trim();
+          if(!isNaN(parseFloat(cell)) && cell.length > 0){
+            if(possibleLat === -1) possibleLat = i;
+            else if(possibleLon === -1) possibleLon = i;
+          }
+        }
+        // إذا وجدنا عمودين رقميين، نعتبرهما خط العرض والطول
+        if(possibleLat !== -1 && possibleLon !== -1){
+          latCol = possibleLat;
+          lonCol = possibleLon;
+          // نبحث عن عمود نصي للاسم
+          for(let i = 0; i < headerRow.length; i++){
+            if(i !== possibleLat && i !== possibleLon){
+              const cell = String(headerRow[i] || '').trim();
+              if(cell.length > 0 && isNaN(parseFloat(cell))){
+                nameCol = i;
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      // إذا لم نجد أي عمود، نستخدم الأعمدة الثلاثة الأولى
+      if(nameCol === -1 && latCol === -1 && lonCol === -1){
+        nameCol = 0;
+        latCol = 1;
+        lonCol = 2;
       }
       
       let importedCount = 0;
       let errorCount = 0;
       
-      for(let i = startRow; i < jsonData.length; i++){
+      // قراءة البيانات من الصفوف
+      for(let i = 1; i < jsonData.length; i++){
         const row = jsonData[i];
-        if(!row || row.length < 3) continue;
+        if(!row || row.length === 0) continue;
         
-        // محاولة استخراج البيانات من الأعمدة
-        let name = null;
+        let name = '';
         let lat = null;
         let lon = null;
         
-        // البحث في الأعمدة عن الاسم والإحداثيات
-        for(let j = 0; j < row.length; j++){
-          const val = String(row[j] || '').trim();
-          if(!val) continue;
-          
-          // محاولة تحديد نوع العمود
-          const num = parseFloat(val);
-          if(!isNaN(num) && num !== 0){
-            if(lat === null && num >= -90 && num <= 90){
-              lat = num;
-            } else if(lon === null && num >= -180 && num <= 180){
-              lon = num;
-            }
-          } else if(name === null && val.length > 0 && !val.match(/^[\d\s]+$/)){
-            name = val;
+        // استخراج البيانات من الأعمدة المحددة
+        if(nameCol !== -1 && nameCol < row.length){
+          name = String(row[nameCol] || '').trim();
+        }
+        
+        if(latCol !== -1 && latCol < row.length){
+          const val = parseFloat(row[latCol]);
+          if(!isNaN(val) && val >= -90 && val <= 90){
+            lat = val;
           }
         }
         
-        // إذا لم نجد الإحداثيات، حاول استخراجها من الأعمدة الثلاثة الأولى
-        if(lat === null || lon === null){
-          const col1 = parseFloat(row[1]);
-          const col2 = parseFloat(row[2]);
-          if(!isNaN(col1) && !isNaN(col2)){
-            if(col1 >= -90 && col1 <= 90 && col2 >= -180 && col2 <= 180){
-              lat = col1;
-              lon = col2;
-            }
+        if(lonCol !== -1 && lonCol < row.length){
+          const val = parseFloat(row[lonCol]);
+          if(!isNaN(val) && val >= -180 && val <= 180){
+            lon = val;
           }
-          // إذا كان الاسم في العمود الأول
-          if(!name && row[0]){
-            name = String(row[0]).trim();
+        }
+        
+        // إذا لم نجد البيانات، نحاول البحث في جميع الأعمدة
+        if(name === '' || lat === null || lon === null){
+          let foundName = false, foundLat = false, foundLon = false;
+          for(let j = 0; j < row.length; j++){
+            const val = String(row[j] || '').trim();
+            if(val === '') continue;
+            
+            const num = parseFloat(val);
+            if(!isNaN(num) && val.length > 0){
+              if(!foundLat && num >= -90 && num <= 90){
+                lat = num;
+                foundLat = true;
+              } else if(!foundLon && num >= -180 && num <= 180 && num !== lat){
+                lon = num;
+                foundLon = true;
+              }
+            } else if(!foundName && val.length > 0 && !val.match(/^[\d\s,.]+$/)){
+              name = val;
+              foundName = true;
+            }
           }
         }
         
