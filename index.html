@@ -466,19 +466,16 @@
    ============================================================ */
 function parseNumberWithComma(value) {
   if (value === null || value === undefined || value === '') return NaN;
-  // تحويل الفاصلة إلى نقطة
   let str = String(value).trim().replace(/,/g, '.');
-  // إزالة أي مسافات
   str = str.replace(/\s/g, '');
   return parseFloat(str);
 }
 
 /* ============================================================
-   دالة تنسيق الأرقام: عرض الأرقام مع فاصلة (لغة عربية) أو نقطة
+   دالة تنسيق الأرقام: عرض الأرقام مع فاصلة (لغة عربية)
    ============================================================ */
 function formatNumberWithComma(value, decimals = 6) {
   if (value === null || value === undefined || isNaN(value)) return '';
-  // تنسيق الرقم مع الفاصلة كفاصل عشري (للعرض باللغة العربية)
   return value.toFixed(decimals).replace(/\./g, ',');
 }
 
@@ -717,7 +714,6 @@ function renderCustomList(){
     let badges = '';
     if(isOwner) badges += '<span class="owner-badge">👤 ملكك</span>';
     if(isAdmin && !isOwner) badges += '<span class="admin-badge">👑 مدير</span>';
-    // عرض الأرقام مع الفاصلة (لغة عربية)
     const latDisplay = formatNumberWithComma(p.lat, 6);
     const lonDisplay = formatNumberWithComma(p.lon, 6);
     d.innerHTML=`
@@ -764,30 +760,44 @@ function renderCustomList(){
   });
 }
 
-/* ---------------- استيراد وتصدير البيانات (Excel) ---------------- */
+/* ============================================================
+   استيراد وتصدير البيانات (Excel) - إصلاح كامل
+   ============================================================ */
 function exportToExcel(){
   if(customPlaces.length === 0){
     showToast('لا توجد بيانات لتصديرها', true);
     return;
   }
   
-  const data = customPlaces.map((p, index) => ({
-    '#': index + 1,
-    'اسم المكان': p.name || '',
-    'خط العرض': p.lat !== undefined && !isNaN(p.lat) ? p.lat : '',
-    'خط الطول': p.lon !== undefined && !isNaN(p.lon) ? p.lon : ''
-  }));
+  // إنشاء مصفوفة ثنائية الأبعاد للبيانات (صفوف وأعمدة)
+  const data = [];
   
+  // إضافة رأس الجدول
+  data.push(['#', 'اسم المكان', 'خط العرض', 'خط الطول']);
+  
+  // إضافة البيانات
+  customPlaces.forEach((p, index) => {
+    data.push([
+      index + 1,
+      p.name || '',
+      p.lat !== undefined && !isNaN(p.lat) ? p.lat : '', // أرقام بنقطة (لغة إنجليزية)
+      p.lon !== undefined && !isNaN(p.lon) ? p.lon : ''
+    ]);
+  });
+  
+  // إنشاء ورقة العمل من المصفوفة
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(data);
+  const ws = XLSX.utils.aoa_to_sheet(data);
   
+  // تعيين عرض الأعمدة
   ws['!cols'] = [
-    { wch: 6 },
-    { wch: 35 },
-    { wch: 18 },
-    { wch: 18 }
+    { wch: 6 },   // #
+    { wch: 35 },  // اسم المكان
+    { wch: 18 },  // خط العرض
+    { wch: 18 }   // خط الطول
   ];
   
+  // تنسيق الخلايا
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
   for(let R = range.s.r; R <= range.e.r; R++) {
     for(let C = range.s.c; C <= range.e.c; C++) {
@@ -795,18 +805,20 @@ function exportToExcel(){
       if(!ws[addr]) continue;
       if(!ws[addr].s) ws[addr].s = {};
       ws[addr].s.alignment = { horizontal: 'center', vertical: 'center' };
-      if(C >= 2 && C <= 3 && !isNaN(ws[addr].v)) {
+      // تنسيق الأرقام (الأعمدة C و D)
+      if(C >= 2 && C <= 3 && !isNaN(ws[addr].v) && ws[addr].v !== '') {
         ws[addr].s.numFmt = '0.######';
       }
     }
   }
   
+  // تنسيق رأس الجدول (الصف الأول)
   const headerRange = XLSX.utils.decode_range(ws['!ref'] || 'A1');
   for(let C = headerRange.s.c; C <= headerRange.e.c; C++) {
     const addr = XLSX.utils.encode_cell({r:headerRange.s.r, c:C});
     if(ws[addr]) {
       if(!ws[addr].s) ws[addr].s = {};
-      ws[addr].s.font = { bold: true };
+      ws[addr].s.font = { bold: true, color: { rgb: "FFFFFF" } };
       ws[addr].s.fill = { fgColor: { rgb: "2C5F4A" } };
       ws[addr].s.alignment = { horizontal: 'center', vertical: 'center' };
     }
@@ -814,6 +826,7 @@ function exportToExcel(){
   
   XLSX.utils.book_append_sheet(wb, ws, 'الأماكن');
   
+  // تصدير الملف
   const fileName = `الاماكن_المخصصة_${new Date().toISOString().slice(0,10)}.xlsx`;
   XLSX.writeFile(wb, fileName);
   showToast(`📊 تم تصدير ${customPlaces.length} مكان كملف Excel`);
@@ -826,6 +839,8 @@ function importFromExcel(file){
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      
+      // قراءة البيانات كمصفوفة ثنائية الأبعاد
       const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
       
       if(!jsonData || jsonData.length < 2){
@@ -833,6 +848,7 @@ function importFromExcel(file){
         return;
       }
       
+      // تحديد أعمدة البيانات من الصف الأول (رأس الجدول)
       let nameCol = -1, latCol = -1, lonCol = -1;
       const headerRow = jsonData[0];
       
@@ -844,33 +860,12 @@ function importFromExcel(file){
           latCol = i;
         } else if(cell.includes('خط طول') || cell.includes('lon') || cell.includes('longitude') || cell.includes('long')) {
           lonCol = i;
+        } else if(cell === '#') {
+          // عمود الترقيم - نتجاهله
         }
       }
       
-      if(nameCol === -1 && latCol === -1 && lonCol === -1){
-        let possibleLat = -1, possibleLon = -1;
-        for(let i = 0; i < headerRow.length; i++){
-          const cell = String(headerRow[i] || '').trim();
-          if(!isNaN(parseFloat(cell)) && cell.length > 0){
-            if(possibleLat === -1) possibleLat = i;
-            else if(possibleLon === -1) possibleLon = i;
-          }
-        }
-        if(possibleLat !== -1 && possibleLon !== -1){
-          latCol = possibleLat;
-          lonCol = possibleLon;
-          for(let i = 0; i < headerRow.length; i++){
-            if(i !== possibleLat && i !== possibleLon){
-              const cell = String(headerRow[i] || '').trim();
-              if(cell.length > 0 && isNaN(parseFloat(cell))){
-                nameCol = i;
-                break;
-              }
-            }
-          }
-        }
-      }
-      
+      // إذا لم نجد الأعمدة، نفترض الترتيب: اسم, خط عرض, خط طول
       if(nameCol === -1 && latCol === -1 && lonCol === -1){
         nameCol = 0;
         latCol = 1;
@@ -880,6 +875,7 @@ function importFromExcel(file){
       let importedCount = 0;
       let errorCount = 0;
       
+      // قراءة البيانات من الصفوف (تبدأ من الصف 1 لتخطي الرأس)
       for(let i = 1; i < jsonData.length; i++){
         const row = jsonData[i];
         if(!row || row.length === 0) continue;
@@ -888,25 +884,34 @@ function importFromExcel(file){
         let lat = null;
         let lon = null;
         
+        // استخراج الاسم
         if(nameCol !== -1 && nameCol < row.length){
           name = String(row[nameCol] || '').trim();
         }
         
+        // استخراج خط العرض (مع دعم الفاصلة أو النقطة)
         if(latCol !== -1 && latCol < row.length){
-          // استخدام دالة parseNumberWithComma للتعامل مع الفاصلة أو النقطة
-          const val = parseNumberWithComma(row[latCol]);
-          if(!isNaN(val) && val >= -90 && val <= 90){
-            lat = val;
+          const val = row[latCol];
+          if(val !== '' && val !== null && val !== undefined){
+            const parsed = parseNumberWithComma(val);
+            if(!isNaN(parsed) && parsed >= -90 && parsed <= 90){
+              lat = parsed;
+            }
           }
         }
         
+        // استخراج خط الطول (مع دعم الفاصلة أو النقطة)
         if(lonCol !== -1 && lonCol < row.length){
-          const val = parseNumberWithComma(row[lonCol]);
-          if(!isNaN(val) && val >= -180 && val <= 180){
-            lon = val;
+          const val = row[lonCol];
+          if(val !== '' && val !== null && val !== undefined){
+            const parsed = parseNumberWithComma(val);
+            if(!isNaN(parsed) && parsed >= -180 && parsed <= 180){
+              lon = parsed;
+            }
           }
         }
         
+        // إذا لم نجد الإحداثيات، نحاول البحث في جميع الأعمدة
         if(name === '' || lat === null || lon === null){
           let foundName = false, foundLat = false, foundLon = false;
           for(let j = 0; j < row.length; j++){
@@ -923,12 +928,13 @@ function importFromExcel(file){
                 foundLon = true;
               }
             } else if(!foundName && val.length > 0 && !val.match(/^[\d\s,.]*$/)){
-              name = val;
+              if(name === '') name = val;
               foundName = true;
             }
           }
         }
         
+        // التحقق من صحة البيانات
         if(name && !isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180){
           const newPlace = { name, lat, lon };
           if(sbConfig){
@@ -1006,7 +1012,6 @@ const saveBtn=document.getElementById('saveBtn'), findBtn=document.getElementByI
 
 function checkSaveReady(){
   const okName=placeName.value.trim().length>0;
-  // استخدام parseNumberWithComma للتحقق من صحة الأرقام
   const latVal = parseNumberWithComma(placeLat.value);
   const lonVal = parseNumberWithComma(placeLon.value);
   const okLat = !isNaN(latVal);
